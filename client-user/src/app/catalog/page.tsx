@@ -1,201 +1,76 @@
-'use client';
+import { Suspense } from 'react';
+import type { Metadata } from 'next';
+import CatalogClient from './CatalogClient';
 
-import { useMemo, useEffect, useState } from 'react';
-import { Layout } from '@/components/Layout';
-import { Page } from '@/components/Page';
-import { SearchInput } from '@/components/SearchInput';
-import { ProductCard } from '@/components/Catalog/ProductCard';
-import { ROUTES } from '@/config/routes';
-import { ProductFilters } from '@/components/ProductFilters';
-import { useInfiniteProductsFlat } from '@/features/products/hooks';
-import { useCategoryFilterOptions } from '@/features/category/hooks';
-import { useClientSearch } from '@/hooks/useClientSearch';
-import { useDebouncedProductFilters } from '@/hooks/useDebouncedProductFilters';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { useAvailableBrands } from '@/features/brands/hooks';
-import { useFiltersStore } from '@/stores/filtersStore';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
-export default function Catalog() {
-  const params = useSearchParams();
-  const { replace } = useRouter();
-  const pathname = usePathname();
+type SearchParamsType = Promise<{
+  category?: string;
+  subcategory?: string;
+  brand?: string;
+}>;
 
-  const { searchQuery, setSearchQuery, updateFilters } = useFiltersStore();
-  const initialQ = (params.get('q') ?? searchQuery ?? '').trim();
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: SearchParamsType;
+}): Promise<Metadata> {
+  const { category: categoryId, subcategory: subcategoryId, brand: brandId } =
+    await searchParams;
 
-  useEffect(() => {
-    const currentFilters = useFiltersStore.getState();
+  let categoryName = '';
+  let brandName = '';
 
-    const filtersToApply = {
-      category: currentFilters.category,
-      subcategory: currentFilters.subcategory,
-      brandId: currentFilters.brandId,
-      priceFrom: currentFilters.priceFrom,
-      priceTo: currentFilters.priceTo,
-      searchQuery: currentFilters.searchQuery,
-    };
-
-    const hasChanges = Object.keys(filtersToApply).some(
-      key =>
-        filtersToApply[key as keyof typeof filtersToApply] !==
-        currentFilters[key as keyof typeof currentFilters],
-    );
-
-    if (hasChanges) {
-      updateFilters(filtersToApply);
-    }
-  }, []);
-
-  const filters = useDebouncedProductFilters({ delay: 300, limit: 24 });
-
-  const {
-    isLoading: categoriesLoading,
-    categoryOptions,
-    getSubcategoryOptions,
-  } = useCategoryFilterOptions();
-
-  const subcategoryOptions = useMemo(
-    () => getSubcategoryOptions(filters.category || null),
-    [getSubcategoryOptions, filters.category],
-  );
-
-  useEffect(() => {
-    if (
-      filters.subcategory &&
-      !subcategoryOptions.some(o => o.value === filters.subcategory)
-    ) {
-      filters.setSubcategory('');
-    }
-  }, [subcategoryOptions, filters]);
-
-  // Данные списка
-  const infinite = useInfiniteProductsFlat(filters.query);
-  const items = infinite.items;
-  const isLoading = infinite.status === 'pending';
-
-  const [searchInput, setSearchInput] = useState(initialQ);
-
-  // Фильтр по клику/Enter. initialQ применим сразу (автопоиск при заходе с q)
-  const search = useClientSearch(items, {
-    keys: ['name', 'description'],
-    delay: 0,
-    initial: initialQ,
-  });
-
-  const handleSearch = (q: string) => {
-    search.setInput(q);
-    if (q !== searchQuery) {
-      setSearchQuery(q);
-    }
-  };
-
-  const { data: brandsData, status: brandsStatus } = useAvailableBrands();
-  const brandsLoading = brandsStatus === 'pending';
-  const brandOptions = useMemo(
-    () =>
-      (brandsData ?? []).map(b => ({
-        label: b.name,
-        value: b.id,
-      })),
-    [brandsData],
-  );
-
-  useEffect(() => {
-    if (searchInput.trim() === '') {
-      search.reset(); // -> hook вернёт все items
-      if (searchQuery !== '') {
-        setSearchQuery('');
+  if (categoryId || subcategoryId) {
+    try {
+      const res = await fetch(`${API_URL}/categories/available`, {
+        next: { revalidate: 3600 },
+      });
+      if (res.ok) {
+        const cats: { id: string; name: string; parentId: string | null }[] =
+          await res.json();
+        const target = subcategoryId
+          ? cats.find(c => c.id === subcategoryId)
+          : cats.find(c => c.id === categoryId);
+        if (target) categoryName = target.name;
       }
-      // (опционально) почистим q из адресной строки:
-      if (params.get('q')) replace(pathname);
-    }
-  }, [
-    searchInput,
-    params,
-    pathname,
-    replace,
-    search,
-    setSearchQuery,
-    searchQuery,
-  ]);
+    } catch {}
+  }
 
-  useEffect(() => {
-    if (
-      filters.brandId &&
-      !brandOptions.some(o => o.value === filters.brandId)
-    ) {
-      filters.setBrandId('');
-    }
-  }, [brandOptions, filters]);
+  if (brandId) {
+    try {
+      const res = await fetch(`${API_URL}/brands/available`, {
+        next: { revalidate: 3600 },
+      });
+      if (res.ok) {
+        const brands: { id: string; name: string }[] = await res.json();
+        const target = brands.find(b => b.id === brandId);
+        if (target) brandName = target.name;
+      }
+    } catch {}
+  }
 
-  const isEmpty = !isLoading && items.length === 0;
-  const nothingFound =
-    !isLoading && search.query.trim() && search.filtered.length === 0;
+  let title = 'Каталог товаров — Touring Expert';
+  if (categoryName && brandName) {
+    title = `${categoryName} · ${brandName} — Touring Expert`;
+  } else if (categoryName) {
+    title = `${categoryName} — купить на Touring Expert`;
+  } else if (brandName) {
+    title = `${brandName} — Touring Expert`;
+  }
 
-  const emptyText = nothingFound
-    ? 'Ничего не найдено'
-    : isEmpty
-      ? 'Продуктов пока нет'
-      : '';
+  return { title };
+}
 
+export default async function CatalogPage({
+  searchParams,
+}: {
+  searchParams: SearchParamsType;
+}) {
+  await searchParams;
   return (
-    <Page back={true}>
-      <Layout className='p-2 pt-4 flex flex-col gap-5'>
-        <SearchInput
-          value={searchInput}
-          onChange={setSearchInput}
-          onSearch={handleSearch} // по клику/Enter применяем
-        />
-
-        <ProductFilters
-          category={filters.category}
-          onCategoryChange={filters.onCategoryChange}
-          categoryOptions={categoryOptions}
-          subcategory={filters.subcategory}
-          onSubcategoryChange={filters.setSubcategory}
-          subcategoryOptions={subcategoryOptions}
-          brandId={filters.brandId}
-          onBrandChange={filters.setBrandId}
-          brandOptions={brandOptions}
-          brandsLoading={brandsLoading}
-          priceFrom={filters.priceFromInput}
-          onPriceFromChange={filters.setPriceFromInput}
-          priceTo={filters.priceToInput}
-          onPriceToChange={filters.setPriceToInput}
-          loading={categoriesLoading}
-          className='grid grid-cols-2'
-        />
-
-        {emptyText && (
-          <div className='p-2 pt-4 text-center text-black'>{emptyText}</div>
-        )}
-
-        <div className='grid grid-cols-3 md:grid-cols-4 gap-4'>
-          {isLoading
-            ? Array.from({ length: 10 }).map((_, i) => (
-                <ProductCard key={`sk-${i}`} isLoading />
-              ))
-            : search.filtered.map(p => (
-                <ProductCard
-                  key={p.id}
-                  product={p}
-                  href={`${ROUTES.CATALOG}/${p.id}`}
-                />
-              ))}
-        </div>
-
-        {infinite.hasNextPage && (
-          <div className='flex justify-center py-4'>
-            <button
-              className='px-4 py-2 bg-black text-white rounded-lg disabled:opacity-50'
-              onClick={() => infinite.fetchNextPage()}
-              disabled={infinite.isFetchingNextPage}
-            >
-              {infinite.isFetchingNextPage ? 'Загрузка…' : 'Показать ещё'}
-            </button>
-          </div>
-        )}
-      </Layout>
-    </Page>
+    <Suspense>
+      <CatalogClient />
+    </Suspense>
   );
 }

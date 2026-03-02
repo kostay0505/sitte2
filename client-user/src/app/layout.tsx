@@ -11,8 +11,24 @@ import { QueryProvider } from '@/providers/QueryProvider';
 import { Tabs } from '@/components/Tabs';
 
 export const metadata: Metadata = {
-  title: 'Touring expert',
-  description: 'Touring expert',
+  title: {
+    default: 'Touring Expert — маркетплейс товаров и вакансий',
+    template: '%s | Touring Expert',
+  },
+  description:
+    'Touring Expert — площадка для покупки и продажи товаров, поиска работы и сотрудников. Объявления от частных лиц и брендов.',
+  metadataBase: new URL('https://touringexpertsale.ru'),
+  openGraph: {
+    siteName: 'Touring Expert',
+    locale: 'ru_RU',
+    type: 'website',
+  },
+  verification: {
+    google: 'ZUuSYEGk4rmgmvcMbwOTTB1ocFHEI2AjvHz6C3X23zI',
+    other: {
+      'yandex-verification': 'b3856d826d8d3914',
+    },
+  },
 };
 
 const comfortaa = Comfortaa({

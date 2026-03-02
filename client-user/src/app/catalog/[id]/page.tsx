@@ -1,122 +1,55 @@
-'use client';
+import type { Metadata } from 'next';
+import { CatalogDetailsClient } from './CatalogDetailsClient';
 
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
-import { Layout } from '@/components/Layout';
-import { Page } from '@/components/Page';
-import { ProductImageGallery } from '@/components/Product/ProductImageGallery';
-import { ProductHeader } from '@/components/Product/ProductHeader';
-import { ProductDescription } from '@/components/Product/ProductDescription';
-import { useProduct } from '@/features/products/hooks';
-import { markProductViewed } from '@/api/products/methods';
-import type { Product } from '@/api/products/types';
-import { toImageSrc } from '@/utils/toImageSrc';
-import { ShareModal } from '@/components/Product/ShareModal';
+const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const SITE_URL = 'https://touringexpertsale.ru';
 
-function mapMediaFiles(
-  p?: Product,
-): { url: string; type: 'image' | 'video' }[] {
-  if (!p) return [];
-
-  const VIDEO_EXT_RE = /\.(mp4|webm|ogg|mov|avi|wmv|flv|mkv)$/i;
-  const isVideoUrl = (url: string) => VIDEO_EXT_RE.test(url.split('?')[0]);
-
-  const mediaFiles = [p.preview, ...(p.files || [])]
-    .filter(Boolean)
-    .map(url => ({
-      url: toImageSrc(url),
-      type: isVideoUrl(url) ? ('video' as const) : ('image' as const),
-    }));
-  return mediaFiles;
+function buildImageUrl(preview: string | null | undefined): string | null {
+  if (!preview) return null;
+  if (/^https?:\/\//i.test(preview)) return preview;
+  const base = (API_URL || '').replace(/\/+$/, '');
+  const path = preview.replace(/^\/+/, '');
+  return base ? `${base}/files/${path}` : null;
 }
 
-export default function CatalogDetails() {
-  const { id } = useParams<{ id: string }>();
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const { data: product, status } = useProduct(id);
-  const isLoading = status === 'pending';
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
 
-  useEffect(() => {
-    if (product?.id) {
-      markProductViewed({ id: product.id }).catch(() => {});
-    }
-  }, [product?.id]);
+  try {
+    const res = await fetch(`${API_URL}/products/${id}`, {
+      next: { revalidate: 3600 },
+    });
 
-  if (!isLoading && !product) {
-    return (
-      <div className='p-2 pt-4 text-center text-black'>Продукт не найден</div>
-    );
+    if (!res.ok) return { title: 'Touring Expert' };
+
+    const product = await res.json();
+
+    const title = `${product.name} — Touring Expert`;
+    const description = product.description
+      ? product.description.slice(0, 160)
+      : `Купить ${product.name} на Touring Expert`;
+    const imageUrl = buildImageUrl(product.preview);
+
+    return {
+      title,
+      description,
+      openGraph: {
+        title,
+        description,
+        url: `${SITE_URL}/catalog/${id}`,
+        type: 'website',
+        ...(imageUrl ? { images: [{ url: imageUrl }] } : {}),
+      },
+    };
+  } catch {
+    return { title: 'Touring Expert' };
   }
+}
 
-  return (
-    <Page back={true}>
-      <Layout className='p-2 pt-4'>
-        {/* 📱 Мобильная версия */}
-        <div className='flex flex-col gap-5 md:hidden mb-5'>
-          <ProductHeader
-            product={product}
-            isLoading={isLoading}
-            isOpen={isOpen}
-            setIsOpen={() => {
-              setIsOpen(true);
-            }}
-          />
-          <ProductImageGallery
-            mediaFiles={mapMediaFiles(product)}
-            productId={product?.id ?? ''}
-            isLoading={isLoading}
-            isFavorite={product?.isFavorite}
-          />
-          <ProductDescription
-            description={product?.description ?? ''}
-            isLoading={isLoading}
-          />
-        </div>
-
-        {/* 💻 Десктопная версия */}
-        <div className='hidden w-full md:flex flex-row gap-5 mb-5'>
-          <ProductImageGallery
-            mediaFiles={mapMediaFiles(product)}
-            productId={product?.id ?? ''}
-            isLoading={isLoading}
-            className='max-w-2/5 w-full'
-            isFavorite={product?.isFavorite}
-          />
-          <div className='flex-1 flex flex-col gap-5 w-full'>
-            <ProductHeader
-              product={product}
-              isLoading={isLoading}
-              isOpen={isOpen}
-              setIsOpen={() => {
-                setIsOpen(true);
-              }}
-            />
-
-            <ProductDescription
-              description={product?.description ?? ''}
-              isLoading={isLoading}
-            />
-          </div>
-        </div>
-
-        {/* <Carousel
-          items={mockProducts}
-          renderItem={item => (
-            <ProductCard
-              product={item}
-              isLoading={isLoading}
-              href={`${ROUTES.CATALOG}/${item.id}`}
-            />
-          )}
-          label='Рекомендации'
-          breakpoints={defaultCarouselBreakpoints}
-        /> */}
-      </Layout>
-      <ShareModal
-        open={isOpen}
-        onClose={() => setIsOpen(false)}
-        url={`${product?.url}`}
-      ></ShareModal>
-    </Page>
-  );
+export default function CatalogDetailsPage() {
+  return <CatalogDetailsClient />;
 }
