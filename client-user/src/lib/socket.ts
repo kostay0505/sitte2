@@ -8,7 +8,7 @@ export function getSocket(): Socket {
   const tokens = getTokens();
   const token = tokens?.accessToken ?? '';
 
-  // Recreate socket if token changed or socket doesn't exist
+  // Recreate socket if token changed or disconnected
   if (socket && currentToken !== token) {
     socket.disconnect();
     socket = null;
@@ -16,7 +16,9 @@ export function getSocket(): Socket {
 
   if (!socket) {
     currentToken = token;
-    socket = io(process.env.NEXT_PUBLIC_API_URL?.replace('/api', '') ?? '', {
+    const baseUrl = (process.env.NEXT_PUBLIC_API_URL ?? '').replace('/api', '');
+    // Connect to namespace /chat
+    socket = io(baseUrl + '/chat', {
       path: '/socket.io',
       auth: { token },
       transports: ['websocket', 'polling'],
