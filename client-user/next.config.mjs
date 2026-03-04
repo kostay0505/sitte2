@@ -16,6 +16,8 @@ const nextConfig = {
       ...(apiDomain ? [{ protocol: 'https', hostname: apiDomain }] : []),
       { protocol: 'https', hostname: 'localhost' },
       { protocol: 'http',  hostname: 'localhost' },
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: 'i.pravatar.cc' },
     ],
   },
   allowedDevOrigins: ['127.0.0.1', 'localhost'],
