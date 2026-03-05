@@ -6,6 +6,7 @@ import { getChatById, markChatRead } from '@/api/chat/methods';
 import type { Chat } from '@/api/chat/methods';
 import { useChat } from '@/hooks/useChat';
 import { ChatWindow } from '@/components/chat/ChatWindow';
+import Link from 'next/link';
 import { toImageSrc } from '@/utils/toImageSrc';
 import { extractTgIdFromToken } from '@/utils/tokenUtils';
 import { getTokens } from '@/api/auth/tokenStorage';
@@ -64,17 +65,29 @@ export default function ChatPage({ params }: Props) {
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{otherName}</p>
+          <Link
+            href={`/catalog/seller/${chat?.sellerId ?? ''}`}
+            className="font-semibold text-gray-900 truncate block hover:text-green-600 transition-colors"
+          >
+            {otherName}
+          </Link>
           {chat?.productName && (
-            <p className="text-xs text-gray-500 truncate">{chat.productName}</p>
+            <Link
+              href={`/catalog/${chat.productId}`}
+              className="text-xs text-gray-500 truncate block hover:text-green-600 transition-colors"
+            >
+              {chat.productName}
+            </Link>
           )}
         </div>
         {chat?.productPreview && (
-          <img
-            src={toImageSrc(chat.productPreview)}
-            alt=""
-            className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-          />
+          <Link href={`/catalog/${chat?.productId}`} className="flex-shrink-0">
+            <img
+              src={toImageSrc(chat.productPreview)}
+              alt=""
+              className="w-10 h-10 rounded-lg object-cover hover:opacity-80 transition-opacity"
+            />
+          </Link>
         )}
       </div>
 
