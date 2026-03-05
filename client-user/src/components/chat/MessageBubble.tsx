@@ -1,6 +1,6 @@
 'use client';
 import { toImageSrc } from '@/utils/toImageSrc';
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 
 interface MessageBubbleProps {
   messageId: string;
@@ -47,6 +47,45 @@ function TrashIcon() {
   );
 }
 
+function ImageViewer({ src, onClose }: { src: string; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = '';
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+      onClick={onClose}
+    >
+      {/* Close button */}
+      <button
+        className="absolute top-4 right-4 text-white/80 hover:text-white bg-black/40 rounded-full p-2 transition-colors"
+        onClick={onClose}
+        aria-label="Закрыть"
+      >
+        <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Image */}
+      <img
+        src={src}
+        alt="attachment"
+        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none"
+        onClick={(e) => e.stopPropagation()}
+        draggable={false}
+      />
+    </div>
+  );
+}
+
 export function MessageBubble({
   messageId,
   body,
@@ -65,6 +104,7 @@ export function MessageBubble({
   const [swiped, setSwiped] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [hovered, setHovered] = useState(false);
+  const [viewerOpen, setViewerOpen] = useState(false);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
 
@@ -76,7 +116,6 @@ export function MessageBubble({
   const handleTouchEnd = (e: React.TouchEvent) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = Math.abs(e.changedTouches[0].clientY - touchStartY.current);
-    // Only trigger on horizontal swipe left (dx < -60) with minimal vertical movement
     if (dx < -60 && dy < 40 && onDelete) {
       setSwiped(true);
     } else if (dx > 20) {
@@ -101,6 +140,14 @@ export function MessageBubble({
 
   return (
     <>
+      {/* Image viewer */}
+      {viewerOpen && imageUrl && (
+        <ImageViewer
+          src={toImageSrc(imageUrl)}
+          onClose={() => setViewerOpen(false)}
+        />
+      )}
+
       {/* Confirmation dialog */}
       {showConfirm && (
         <div
@@ -138,7 +185,7 @@ export function MessageBubble({
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
       >
-        {/* Swipe-revealed delete button (mobile, own messages) */}
+        {/* Swipe-revealed delete button */}
         {isMine && onDelete && (
           <div
             className={`flex items-center justify-center transition-all duration-200 overflow-hidden ${
@@ -180,7 +227,8 @@ export function MessageBubble({
               <img
                 src={toImageSrc(imageUrl)}
                 alt="attachment"
-                className="rounded-lg max-w-full max-h-64 object-contain"
+                className="rounded-lg max-w-full max-h-64 object-contain cursor-zoom-in"
+                onClick={() => setViewerOpen(true)}
               />
             </div>
           )}
