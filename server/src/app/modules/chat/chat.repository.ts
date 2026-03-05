@@ -111,6 +111,10 @@ export class ChatRepository {
     } else {
       await this.db.execute(sql`UPDATE Chats SET unreadSeller = 0 WHERE id = ${chatId}`);
     }
+    // Mark messages from the other user as read
+    await this.db.execute(
+      sql`UPDATE Messages SET isRead = true WHERE chatId = ${chatId} AND senderId != ${userId} AND isRead = false`
+    );
   }
 
   async getChatById(chatId: string) {

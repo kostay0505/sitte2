@@ -22,7 +22,7 @@ export default function ChatPage({ params }: Props) {
   const [loadingChat, setLoadingChat] = useState(true);
   const [currentUserId, setCurrentUserId] = useState('');
 
-  const { messages, sendMessage, hasMore, loadMore, isFetchingNextPage } =
+  const { messages, sendMessage, isSending, hasMore, loadMore, isFetchingNextPage } =
     useChat(chatId);
 
   useEffect(() => {
@@ -97,6 +97,7 @@ export default function ChatPage({ params }: Props) {
             chat={chat}
             messages={messages}
             currentUserId={currentUserId}
+            isSending={isSending}
             onSend={sendMessage}
             hasMore={hasMore}
             onLoadMore={loadMore}
