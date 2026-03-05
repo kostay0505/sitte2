@@ -15,7 +15,6 @@ import { loginWithEmail } from '@/api/auth/methods';
 import { saveTokens, clearTokens, getTokens } from '@/api/auth/tokenStorage';
 import { isTokenExpired } from '@/utils/tokenUtils';
 import { useAuthStore } from '@/stores/authStore';
-import { useChatList } from '@/hooks/useChatList';
 
 interface TabItem {
   path: string;
@@ -46,8 +45,6 @@ export const Tabs: React.FC = memo(() => {
   const isAuthorized = useAuthStore(s => s.isAuthorized);
   const setAuthorized = useAuthStore(s => s.setAuthorized);
 
-  const { totalUnread } = useChatList();
-
   useEffect(() => {
     const tokens = getTokens();
 
@@ -72,7 +69,7 @@ export const Tabs: React.FC = memo(() => {
         icon: TgIcon2,
         isActive: () => false,
         external: true,
-        text: 'Канал TE',
+        text: 'Телеграмм TE',
       },
       {
         path: ROUTES.HOME,
@@ -97,7 +94,7 @@ export const Tabs: React.FC = memo(() => {
         path: ROUTES.PROFILE,
         icon: UserRound,
         isActive: pathname => pathname.startsWith(ROUTES.PROFILE),
-        text: 'Профиль',
+        text: 'Аккаунт',
       },
     ];
   }, []);
@@ -147,7 +144,7 @@ export const Tabs: React.FC = memo(() => {
                   <DoorOpen className='w-7 h-7 md:w-9 md:h-9' />
                 )}
                 <span className={cn('hidden md:block')}>
-                  {tab.requiresAuth ? tab.text : 'Вход'}
+                  {tab.requiresAuth ? tab.text : 'Войти'}
                 </span>
               </button>
             );
@@ -157,7 +154,6 @@ export const Tabs: React.FC = memo(() => {
           const isActive = tab.isActive(pathname);
           const isLogo = tab?.isLogo;
           const text = tab?.text;
-          const isChats = tab.path === ROUTES.CHATS;
 
           return (
             <button
@@ -170,20 +166,13 @@ export const Tabs: React.FC = memo(() => {
                 'md:text-sm',
               )}
             >
-              <div className="relative">
-                <Icon
-                  className={cn(
-                    isLogo
-                      ? 'w-[60px] h-7 md:h-[70px] md:object-contain md:w-auto'
-                      : 'w-7 h-7 md:w-9 md:h-9',
-                  )}
-                />
-                {isChats && totalUnread > 0 && (
-                  <span className="absolute -top-1 -right-1.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5 leading-none">
-                    {totalUnread > 99 ? '99+' : totalUnread}
-                  </span>
+              <Icon
+                className={cn(
+                  isLogo
+                    ? 'w-[60px] h-7 md:h-[70px] md:object-contain md:w-auto'
+                    : 'w-7 h-7 md:w-9 md:h-9',
                 )}
-              </div>
+              />
               {text && <span className={cn('hidden md:block')}>{text}</span>}
             </button>
           );
