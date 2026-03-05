@@ -8,12 +8,13 @@ import { Page } from '@/components/Page';
 import { SearchInput } from '@/components/SearchInput';
 import { ProductCard } from '@/components/Catalog/ProductCard';
 import { ROUTES } from '@/config/routes';
-import { ProductFilters } from '@/components/ProductFilters';
 import { useInfiniteProductsFlat } from '@/features/products/hooks';
 import { useCategoryFilterOptions } from '@/features/category/hooks';
 import { useClientSearch } from '@/hooks/useClientSearch';
 import { useAvailableBrands } from '@/features/brands/hooks';
 import { Link } from '@/components/Link/Link';
+import { ComboSelect } from '@/components/common/Select/ComboSelect';
+import { Input } from '@/components/common/Input/Input';
 
 export default function CatalogClient() {
   const router = useRouter();
@@ -75,7 +76,10 @@ export default function CatalogClient() {
   const { isLoading: categoriesLoading, all: allCategories } = useCategoryFilterOptions();
 
   const parentCategories = useMemo(
-    () => allCategories.filter(c => !c.parentId && c.slug).sort((a, b) => a.displayOrder - b.displayOrder),
+    () =>
+      allCategories
+        .filter(c => !c.parentId && c.slug)
+        .sort((a, b) => a.displayOrder - b.displayOrder),
     [allCategories],
   );
 
@@ -131,7 +135,7 @@ export default function CatalogClient() {
           onSearch={search.setInput}
         />
 
-        {/* Category navigation grid */}
+        {/* Category pills */}
         {!categoriesLoading && parentCategories.length > 0 && (
           <div className='flex flex-wrap gap-2'>
             {parentCategories.map(cat => (
@@ -146,25 +150,41 @@ export default function CatalogClient() {
           </div>
         )}
 
-        {/* Brand + price filters only */}
-        <ProductFilters
-          category=''
-          onCategoryChange={() => {}}
-          categoryOptions={[]}
-          subcategory=''
-          onSubcategoryChange={() => {}}
-          subcategoryOptions={[]}
-          brandId={brand}
-          onBrandChange={v => updateParams({ brand: v })}
-          brandOptions={brandOptions}
-          brandsLoading={brandsStatus === 'pending'}
-          priceFrom={priceFromInput}
-          onPriceFromChange={handlePriceFromChange}
-          priceTo={priceToInput}
-          onPriceToChange={handlePriceToChange}
-          loading={false}
-          className='grid grid-cols-2'
-        />
+        {/* Brand + price filters */}
+        <div className='flex flex-wrap gap-2'>
+          <ComboSelect
+            placeholder='Бренд'
+            value={brand}
+            options={brandOptions}
+            onChange={v => updateParams({ brand: v })}
+            containerClassName='flex-1 !h-[30px] md:!h-[40px]'
+            className='text-[10px] md:text-sm'
+            disabled={brandsStatus === 'pending' || brandOptions.length === 0}
+          />
+          <div className='flex border border-[#4D4D4D] rounded-xl bg-white gap-[2px] h-[30px] md:h-[40px] overflow-hidden'>
+            <Input
+              label='Цена от'
+              containerClassName='!border-0 !h-full'
+              type='number'
+              className='text-[10px] md:text-sm'
+              labelClassName='text-[10px] md:text-sm'
+              lableFocusedClassName='!text-[5px] md:!text-[9px]'
+              value={priceFromInput}
+              onChange={e => handlePriceFromChange(e.target.value)}
+            />
+            <div className='w-[1px] h-[30px] md:h-[40px] bg-[#4D4D4D]' />
+            <Input
+              label='Цена до'
+              containerClassName='!border-0 !h-full'
+              type='number'
+              className='text-[10px] md:text-sm'
+              labelClassName='text-[10px] md:text-sm'
+              lableFocusedClassName='!text-[5px] md:!text-[9px]'
+              value={priceToInput}
+              onChange={e => handlePriceToChange(e.target.value)}
+            />
+          </div>
+        </div>
 
         {emptyText && (
           <div className='p-2 pt-4 text-center text-black'>{emptyText}</div>
