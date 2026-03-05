@@ -12,11 +12,11 @@ import { Tabs } from '@/components/Tabs';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Touring Expert — маркетплейс товаров и вакансий',
+    default: 'Touring Expert — профессиональный маркетплейс',
     template: '%s | Touring Expert',
   },
   description:
-    'Touring Expert — площадка для покупки и продажи товаров, поиска работы и сотрудников. Объявления от частных лиц и брендов.',
+    'Touring Expert — платформа для покупки и продажи звукового, светового оборудования и многого другого.',
   metadataBase: new URL('https://touringexpertsale.ru'),
   openGraph: {
     siteName: 'Touring Expert',
@@ -58,9 +58,11 @@ export default async function RootLayout({ children }: PropsWithChildren) {
         }}
       >
         <Root>
-          <QueryProvider>{children}</QueryProvider>
+          <QueryProvider>
+            {children}
+            <Tabs />
+          </QueryProvider>
           <Toaster richColors position='top-center' />
-          <Tabs />
         </Root>
         <div id='modal-root'></div>
       </body>
