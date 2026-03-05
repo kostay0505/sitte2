@@ -26,9 +26,11 @@ export function ChatWindow({
   const bottomRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // Scroll to bottom when last message changes (new message or initial load)
+  const lastMessageId = messages[messages.length - 1]?.id;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  }, [lastMessageId]);
 
   const handleScroll = () => {
     const el = containerRef.current;

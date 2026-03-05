@@ -20,10 +20,18 @@ export function useChat(chatId: string) {
       enabled: !!isAuthorized && !!chatId,
     });
 
-  // Server returns DESC (newest first), reverse for display (oldest at top, newest at bottom)
+  // Server returns DESC (newest first), reverse for display (oldest top, newest bottom)
   const messages: Message[] = (data?.pages.flatMap((p) => p.items) ?? []).slice().reverse();
 
-  // Socket for real-time INCOMING messages from other users
+  // Mark chat as read when opened (independent of socket)
+  useEffect(() => {
+    if (!isAuthorized || !chatId) return;
+    markChatRead(chatId).catch(() => {});
+    // Re-run when new messages arrive (invalidate chat list unread count)
+    qc.invalidateQueries({ queryKey: ['chatList'] });
+  }, [isAuthorized, chatId, messages.length, qc]);
+
+  // Socket for real-time INCOMING messages
   useEffect(() => {
     if (!isAuthorized || !chatId) return;
     let socket: ReturnType<typeof getSocket>;
@@ -36,11 +44,9 @@ export function useChat(chatId: string) {
 
     const onConnect = () => {
       socket.emit('joinChat', chatId);
-      markChatRead(chatId).catch(() => {});
     };
 
     const onNewMessage = () => {
-      // Invalidate to reload from server when other user sends
       qc.invalidateQueries({ queryKey: ['chatMessages', chatId] });
     };
 
@@ -63,7 +69,6 @@ export function useChat(chatId: string) {
       if (!isAuthorized) return;
       try {
         await sendChatMessage(chatId, body || null, imageUrl ?? null);
-        // Force refetch so UI shows saved message
         await qc.invalidateQueries({ queryKey: ['chatMessages', chatId] });
       } catch (e) {
         console.error('sendMessage error:', e);
