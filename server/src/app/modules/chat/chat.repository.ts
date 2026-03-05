@@ -71,32 +71,19 @@ export class ChatRepository {
     return { items: rows, nextCursor };
   }
 
-  async getMessages(chatId: string, cursor?: string, limit = 30) {
-    let rows: any[];
-    if (cursor) {
-      const result = await this.db.execute(
-        sql`SELECT id, chatId, senderId, body, imageUrl, isRead, createdAt
-            FROM Messages
-            WHERE chatId = ${chatId}
-              AND createdAt < (SELECT createdAt FROM Messages WHERE id = ${cursor} LIMIT 1)
-            ORDER BY createdAt DESC
-            LIMIT ${limit}`
-      );
-      rows = this.rows(result);
-    } else {
-      const result = await this.db.execute(
-        sql`SELECT id, chatId, senderId, body, imageUrl, isRead, createdAt
-            FROM Messages
-            WHERE chatId = ${chatId}
-            ORDER BY createdAt DESC
-            LIMIT ${limit}`
-      );
-      rows = this.rows(result);
-    }
-    const nextCursor = rows.length === limit ? rows[rows.length - 1].id : null;
-    return { items: rows.reverse(), nextCursor };
+    async getMessages(chatId: string, cursor?: string, limit = 100) {
+    const result = await this.db.execute(
+      sql`SELECT id, chatId, senderId, body, imageUrl, isRead, createdAt
+          FROM Messages
+          WHERE chatId = ${chatId}
+          ORDER BY createdAt ASC
+          LIMIT ${limit}`
+    );
+    const rows = this.rows(result);
+    return { items: rows, nextCursor: null };
   }
 
+  
   async createMessage(chatId: string, senderId: string, body: string | null, imageUrl: string | null, sellerId: string, buyerId: string) {
     const id = crypto.randomUUID();
     await this.db.execute(
