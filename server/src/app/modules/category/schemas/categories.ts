@@ -5,6 +5,7 @@ import { relations } from 'drizzle-orm';
 export const categories = mysqlTable('Categories', {
   id: char('id', { length: 36 }).primaryKey(),
   name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }),
   parentId: char('parentId', { length: 36 }),
   displayOrder: int('displayOrder').notNull(),
   isActive: boolean('isActive').notNull().default(true),

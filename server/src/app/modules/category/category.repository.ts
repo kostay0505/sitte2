@@ -10,6 +10,7 @@ import { SqlQueryResult } from 'src/database/utils';
 export interface CategoryRow {
     id: string;
     name: string;
+    slug: string | null;
     parentId: string | null;
     displayOrder: number;
     isActive: boolean;
@@ -51,9 +52,10 @@ export class CategoryRepository {
 
     async findAll(): Promise<Omit<Category, 'createdAt' | 'updatedAt'>[]> {
         const result = await this.db.execute(sql`
-            SELECT 
-                id, 
+            SELECT
+                id,
                 name,
+                slug,
                 parentId,
                 displayOrder,
                 isActive
@@ -70,9 +72,10 @@ export class CategoryRepository {
 
     async findAllAvailable(): Promise<Omit<Category, 'createdAt' | 'updatedAt'>[]> {
         const result = await this.db.execute(sql`
-            SELECT 
-                id, 
+            SELECT
+                id,
                 name,
+                slug,
                 parentId,
                 displayOrder,
                 isActive
@@ -90,9 +93,10 @@ export class CategoryRepository {
 
     async findById(id: string): Promise<Omit<Category, 'createdAt' | 'updatedAt'> | null> {
         const result = await this.db.execute(sql`
-            SELECT 
-                id, 
+            SELECT
+                id,
                 name,
+                slug,
                 parentId,
                 displayOrder,
                 isActive
@@ -104,13 +108,33 @@ export class CategoryRepository {
             throw new Error('Unexpected query result format');
         }
 
-        return result[0][0];
+        return result[0][0] ?? null;
+    }
+
+    async findBySlug(slug: string): Promise<Omit<Category, 'createdAt' | 'updatedAt'> | null> {
+        const result = await this.db.execute(sql`
+            SELECT
+                id,
+                name,
+                slug,
+                parentId,
+                displayOrder,
+                isActive
+            FROM ${categories}
+            WHERE ${categories.slug} = ${slug}
+        `) as SqlQueryResult<Category>;
+
+        if (!Array.isArray(result[0])) {
+            throw new Error('Unexpected query result format');
+        }
+
+        return result[0][0] ?? null;
     }
 
     async findShortById(id: string): Promise<CategoryShort | null> {
         const result = await this.db.execute(sql`
-            SELECT 
-                id, 
+            SELECT
+                id,
                 name
             FROM ${categories}
             WHERE ${categories.id} = ${id}
@@ -123,7 +147,7 @@ export class CategoryRepository {
 
     async getChildCategoryIds(parentId: string): Promise<string[]> {
         const result = await this.db.execute(sql`
-            SELECT 
+            SELECT
                 id
             FROM ${categories}
             WHERE ${categories.parentId} = ${parentId}

@@ -6,6 +6,10 @@ export class UpdateCategoryDto {
     name?: string;
 
     @IsOptional()
+    @IsString()
+    slug?: string;
+
+    @IsOptional()
     @IsUUID()
     parentId?: string;
 

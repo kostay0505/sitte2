@@ -21,6 +21,13 @@ const getCategoryFormFields = (categories: Category[], editingCategory: Category
         placeholder: 'Введите название категории'
     },
     {
+        name: 'slug',
+        label: 'URL-слаг (slug)',
+        type: 'text',
+        required: false,
+        placeholder: 'например: zvukovoe-oborudovanie'
+    },
+    {
         name: 'parentId',
         label: 'Родительская категория',
         type: 'select',
@@ -221,7 +228,8 @@ export default function CategoriesPage() {
                 name: '',
                 parentId: '',
                 displayOrder: 0,
-                isActive: true
+                isActive: true,
+            slug: ''
             };
         }
 
@@ -229,7 +237,8 @@ export default function CategoriesPage() {
             name: editingCategory.name,
             parentId: editingCategory.parentId || '',
             displayOrder: editingCategory.displayOrder,
-            isActive: Boolean(editingCategory.isActive)
+            isActive: Boolean(editingCategory.isActive),
+            slug: editingCategory.slug || ''
         };
     };
 

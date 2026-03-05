@@ -27,7 +27,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const results: MetadataRoute.Sitemap = [...staticPages];
 
-  // Все товары
+  // All products
   try {
     const res = await fetch(`${API_URL}/products/available?limit=10000`, {
       next: { revalidate: 3600 },
@@ -46,25 +46,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {}
 
-  // Категории фильтра
+  // Category slug pages
   try {
     const res = await fetch(`${API_URL}/categories/available`, {
       next: { revalidate: 3600 },
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      const cats: { id: string; parentId: string | null }[] = await res.json();
+      const cats: { id: string; slug: string | null; parentId: string | null }[] = await res.json();
+      const slugById = new Map(cats.filter(c => c.slug).map(c => [c.id, c.slug!]));
       cats.forEach(c => {
-        if (!c.parentId) {
+        if (!c.parentId && c.slug) {
           results.push({
-            url: `${SITE_URL}/catalog?category=${c.id}`,
+            url: `${SITE_URL}/catalog/category/${c.slug}`,
             lastModified: new Date(),
             changeFrequency: 'weekly',
             priority: 0.8,
           });
-        } else {
+        } else if (c.parentId && c.slug && slugById.has(c.parentId)) {
           results.push({
-            url: `${SITE_URL}/catalog?category=${c.parentId}&subcategory=${c.id}`,
+            url: `${SITE_URL}/catalog/category/${slugById.get(c.parentId)}/${c.slug}`,
             lastModified: new Date(),
             changeFrequency: 'weekly',
             priority: 0.75,
@@ -74,7 +75,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
   } catch {}
 
-  // Все бренды
+  // All brands
   try {
     const res = await fetch(`${API_URL}/brands/available`, {
       next: { revalidate: 3600 },

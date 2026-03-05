@@ -6,7 +6,8 @@ import {
     Body,
     Param,
     HttpCode,
-    HttpStatus
+    HttpStatus,
+    NotFoundException,
 } from '@nestjs/common';
 import { CategoryService } from './category.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -31,12 +32,21 @@ export class CategoryController {
         return categories;
     }
 
+    @Get('slug/:slug')
+    async getBySlug(@Param('slug') slug: string): Promise<Omit<Category, 'createdAt' | 'updatedAt'>> {
+        const category = await this.service.findBySlug(slug);
+        if (!category) {
+            throw new NotFoundException('Category not found');
+        }
+        return category;
+    }
+
     @Get(':id')
     @AdminJwtAuth()
     async findOne(@Param('id') id: string): Promise<Omit<Category, 'createdAt' | 'updatedAt'>> {
         const category = await this.service.findById(id);
         if (!category) {
-            throw new Error('Категория не найдена');
+            throw new NotFoundException('Category not found');
         }
         return category;
     }
@@ -58,7 +68,7 @@ export class CategoryController {
         await this.service.update(id, dto);
         const updatedCategory = await this.service.findById(id);
         if (!updatedCategory) {
-            throw new Error('Категория не найдена после обновления');
+            throw new NotFoundException('Category not found after update');
         }
         return updatedCategory;
     }

@@ -6,7 +6,8 @@ export type CategoryBasic = {
 export type Category = {
   id: string;
   name: string;
-  parentId: string | null; // если категория верхнего уровня
+  slug: string | null;
+  parentId: string | null;
   displayOrder: number;
   isActive: boolean;
 };
