@@ -13,7 +13,10 @@ import {
   FileText,
   Pencil,
   ChevronDown,
-  Menu,
+  LayoutDashboard,
+  MessageSquare,
+  Settings,
+  LogOut,
   Search,
 } from 'lucide-react';
 import { TgIcon2 } from '@/components/common/SvgIcon';
@@ -31,7 +34,7 @@ import { toImageSrc } from '@/utils/toImageSrc';
 import { Link } from '@/components/Link/Link';
 import { UserDataResponse } from '@/api/user/types';
 import { TgConfirmModal } from '@/components/Auth/TgConfirmModal';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore } from '@/stores/authStore';
 import { clearTokens } from '@/api/auth/tokenStorage';
 import { isTMA } from '@tma.js/bridge';
@@ -65,9 +68,7 @@ export default function ProfilePage() {
     return toImageSrc(me?.photoUrl ?? initDataUser?.photo_url ?? null);
   }, [me?.photoUrl, initDataUser?.photo_url]);
 
-  const [subscribed, setSubscribed] = useState<boolean>(
-    !!me?.subscribedToNewsletter,
-  );
+  const [subscribed, setSubscribed] = useState<boolean>(!!me?.subscribedToNewsletter);
   useEffect(() => {
     if (typeof me?.subscribedToNewsletter === 'boolean') {
       setSubscribed(me.subscribedToNewsletter);
@@ -87,9 +88,7 @@ export default function ProfilePage() {
         cityId: me?.city?.id ?? null,
         subscribedToNewsletter: next,
       },
-      {
-        onError: () => setSubscribed(() => !next),
-      },
+      { onError: () => setSubscribed(!next) },
     );
   };
 
@@ -97,8 +96,8 @@ export default function ProfilePage() {
     <ProtectedRoute>
       <Page back={true}>
         {/* Desktop layout */}
-        <div className='hidden md:flex md:flex-col md:h-full md:text-black'>
-          <DesktopProfile
+        <div className='hidden md:flex md:min-h-screen md:text-black'>
+          <DesktopLayout
             me={me}
             isLoading={isLoading}
             displayName={displayName}
@@ -165,10 +164,10 @@ export default function ProfilePage() {
 }
 
 // ─────────────────────────────────────────────
-// Desktop layout
+// Desktop layout: sidebar + main content
 // ─────────────────────────────────────────────
 
-function DesktopProfile({
+function DesktopLayout({
   me,
   isLoading,
   displayName,
@@ -183,6 +182,184 @@ function DesktopProfile({
   displayName: string;
   displayHandle: string;
   avatarSrc: string | null;
+  subscribed: boolean;
+  onToggleSubscribed: (v: boolean) => void;
+  editPending: boolean;
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const setAuthorized = useAuthStore(s => s.setAuthorized);
+  const queryClient = useQueryClient();
+  const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
+  const [jobOpen, setJobOpen] = useState(false);
+
+  const handleLogout = () => {
+    setAuthorized(false);
+    clearTokens();
+    queryClient.clear();
+    router.replace(ROUTES.HOME);
+  };
+
+  const navItems = [
+    {
+      icon: <LayoutDashboard className='w-4 h-4' />,
+      label: 'Витрина',
+      href: ROUTES.PROFILE,
+    },
+    {
+      icon: <MessageSquare className='w-4 h-4' />,
+      label: 'Сообщения',
+      href: '/chats',
+    },
+    {
+      icon: <FileText className='w-4 h-4' />,
+      label: 'Личная инфо',
+      href: `${ROUTES.PROFILE}/info`,
+    },
+    {
+      icon: <PlusSquare className='w-4 h-4' />,
+      label: 'Создать',
+      href: ROUTES.CREATE_ADVERTISEMENT,
+    },
+  ];
+
+  const bottomItems = [
+    {
+      icon: <Heart className='w-4 h-4' />,
+      label: 'Избранное',
+      href: ROUTES.FAVORITES,
+    },
+  ];
+
+  return (
+    <div className='flex w-full'>
+      {/* Sidebar */}
+      <aside className='w-44 flex-shrink-0 p-3 pt-4'>
+        <div className='bg-white rounded-2xl shadow-sm p-3 space-y-0.5'>
+          {navItems.map(item => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition',
+                pathname === item.href
+                  ? 'bg-gray-900 text-white font-semibold'
+                  : 'text-gray-700 hover:bg-gray-100',
+              )}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+
+          {/* Работа accordion */}
+          <button
+            onClick={() => setJobOpen(p => !p)}
+            className='w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
+          >
+            <span className='flex items-center gap-2.5'>
+              <Briefcase className='w-4 h-4' />
+              Работа
+            </span>
+            <ChevronDown
+              className={cn(
+                'w-3 h-3 text-gray-400 transition-transform flex-shrink-0',
+                jobOpen && 'rotate-180',
+              )}
+            />
+          </button>
+
+          <AnimatePresence>
+            {jobOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className='overflow-hidden'
+              >
+                <div className='pl-2 space-y-0.5'>
+                  {[
+                    { label: 'Мои вакансии', href: ROUTES.MY_VACANCY },
+                    { label: 'Создать вакансию', href: ROUTES.CREATE_VACANCY },
+                    { label: 'Мои резюме', href: ROUTES.MY_RESUME },
+                    { label: 'Создать резюме', href: ROUTES.CREATE_RESUME },
+                  ].map(sub => (
+                    <Link
+                      key={sub.href}
+                      href={sub.href}
+                      className='flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs text-gray-600 hover:bg-gray-100 transition'
+                    >
+                      <Pencil className='w-3 h-3' />
+                      {sub.label}
+                    </Link>
+                  ))}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Separator */}
+          <div className='h-px bg-gray-100 my-1' />
+
+          {bottomItems.map(item => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className='flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+
+          {!me?.username && (
+            <button
+              onClick={() => setTgConfirmOpen(true)}
+              className='w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
+            >
+              <TgIcon2 className='w-4 h-4' />
+              Привязать ТГ
+            </button>
+          )}
+
+          <div className='h-px bg-gray-100 my-1' />
+
+          {!isTMA() && (
+            <button
+              onClick={handleLogout}
+              className='w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
+            >
+              <LogOut className='w-4 h-4' />
+              Выйти
+            </button>
+          )}
+        </div>
+      </aside>
+
+      {/* Main content */}
+      <main className='flex-1 flex flex-col min-w-0 p-4 pt-4'>
+        <Vitrine subscribed={subscribed} onToggleSubscribed={onToggleSubscribed} editPending={editPending} />
+      </main>
+
+      <TgConfirmModal
+        open={tgConfirmOpen}
+        onClose={() => setTgConfirmOpen(false)}
+        value={me?.url ?? ''}
+      />
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Витрина объявлений
+// ─────────────────────────────────────────────
+
+function Vitrine({
+  subscribed,
+  onToggleSubscribed,
+  editPending,
+}: {
   subscribed: boolean;
   onToggleSubscribed: (v: boolean) => void;
   editPending: boolean;
@@ -204,20 +381,20 @@ function DesktopProfile({
   }, [allItems, search, statusFilter]);
 
   const handleDelete = (id: string) => {
-    if (!id) return;
-    if (confirm('Удалить объявление?')) {
-      del.mutate(id, {
-        onSuccess: () => toast.success('Объявление удалено'),
-        onError: (e: any) =>
-          toast.error(e?.message ?? 'Не удалось удалить объявление'),
-      });
-    }
+    if (!id || !confirm('Удалить объявление?')) return;
+    del.mutate(id, {
+      onSuccess: () => toast.success('Объявление удалено'),
+      onError: (e: any) => toast.error(e?.message ?? 'Не удалось удалить'),
+    });
   };
 
   const handlePosting = (product: ProductBasic) => {
     const message = `${product.name}\n\n${product.description}\n\n${formatPrice(product.priceCash, product.currency)}\n\n${product.url}`;
-    const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(product.url || '')}&text=${encodeURIComponent(message)}`;
-    window.open(telegramUrl, '_blank', 'noopener,noreferrer');
+    window.open(
+      `https://t.me/share/url?url=${encodeURIComponent(product.url || '')}&text=${encodeURIComponent(message)}`,
+      '_blank',
+      'noopener,noreferrer',
+    );
   };
 
   const statusLabels: Record<StatusType | 'all', string> = {
@@ -228,307 +405,87 @@ function DesktopProfile({
   };
 
   return (
-    <div className='flex flex-col min-h-screen text-black'>
-      {/* Top bar */}
-      <div className='flex items-center justify-between gap-4 px-6 py-4 border-b bg-white'>
-        {/* Left: dropdown menu */}
-        <DesktopMenu user={me} />
-
-        {/* Center: user info */}
-        <div className='flex items-center gap-3'>
-          <div className='w-10 h-10 border rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0'>
-            {isLoading ? (
-              <Skeleton width={40} height={40} />
-            ) : avatarSrc ? (
-              <ImageWithSkeleton
-                src={avatarSrc}
-                containerClassName='w-10 h-10'
-                className='!rounded-none object-cover'
-                alt='avatar'
-                isLoading={isLoading}
-              />
-            ) : (
-              <UserIcon className='w-6 h-6 text-gray-500' />
-            )}
-          </div>
-          <div>
-            {isLoading ? (
-              <Skeleton width={120} height={20} />
-            ) : (
-              <>
-                <div className='font-medium text-sm leading-tight'>{displayName}</div>
-                <div className='text-gray-500 text-xs'>{displayHandle}</div>
-              </>
-            )}
-          </div>
-        </div>
-
-        {/* Right: newsletter + logout */}
-        <div className='flex items-center gap-4'>
-          <div className='flex items-center gap-2'>
-            <span className='text-sm text-gray-600'>Рассылка</span>
-            <Switch
-              checked={subscribed}
-              onCheckedChange={onToggleSubscribed}
-              disabled={isLoading || editPending}
-            />
-          </div>
-          {!isTMA() && <LogoutButton />}
-        </div>
-      </div>
-
-      {/* Search + filters */}
-      <div className='flex items-center gap-3 px-6 py-4 border-b bg-[#F5F5FA]'>
-        <div className='relative flex-1 max-w-md'>
+    <>
+      {/* Search bar */}
+      <div className='flex items-center gap-3 mb-4'>
+        <div className='relative flex-1 max-w-lg mx-auto'>
           <Search className='absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400' />
           <input
             type='text'
-            placeholder='Поиск по названию...'
+            placeholder='Search'
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className='w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white outline-none focus:border-gray-400 transition'
+            className='w-full pl-9 pr-4 py-2.5 text-sm border border-gray-200 rounded-full bg-white outline-none focus:border-gray-400 transition shadow-sm'
           />
         </div>
+      </div>
 
-        <div className='flex items-center gap-2'>
-          {(Object.keys(statusLabels) as (StatusType | 'all')[]).map(s => (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className={cn(
-                'px-3 py-1.5 text-sm rounded-lg border transition',
-                statusFilter === s
-                  ? 'bg-black text-white border-black'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400',
-              )}
-            >
-              {statusLabels[s]}
-            </button>
-          ))}
+      {/* Status filters */}
+      <div className='flex items-center gap-2 mb-4'>
+        {(Object.keys(statusLabels) as (StatusType | 'all')[]).map(s => (
+          <button
+            key={s}
+            onClick={() => setStatusFilter(s)}
+            className={cn(
+              'px-3 py-1 text-xs rounded-full border transition',
+              statusFilter === s
+                ? 'bg-gray-900 text-white border-gray-900'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400',
+            )}
+          >
+            {statusLabels[s]}
+          </button>
+        ))}
+
+        <div className='ml-auto flex items-center gap-2 text-xs text-gray-500'>
+          <span>Рассылка</span>
+          <Switch
+            checked={subscribed}
+            onCheckedChange={onToggleSubscribed}
+            disabled={editPending}
+          />
         </div>
       </div>
 
-      {/* Products grid */}
-      <div className='flex-1 px-6 py-6'>
-        {isProductsLoading && (
-          <div className='grid grid-cols-4 gap-4'>
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ProductCard key={i} isLoading />
-            ))}
-          </div>
-        )}
-
-        {!isProductsLoading && filtered.length === 0 && (
-          <div className='flex flex-col items-center justify-center py-20 text-gray-400'>
-            <div className='text-5xl mb-4'>📦</div>
-            <div className='text-lg'>
-              {allItems.length === 0
-                ? 'Объявлений пока нет'
-                : 'Ничего не найдено'}
-            </div>
-          </div>
-        )}
-
-        {!isProductsLoading && filtered.length > 0 && (
-          <div className='grid grid-cols-4 gap-4'>
-            {filtered.map(product => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                hideFavorite
-                showDelete
-                onDelete={handleDelete}
-                showPosting
-                onPosting={handlePosting}
-                href={`${ROUTES.EDIT_ADVERTISEMENT}/${product.id}`}
-                showStatus
-              />
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────
-// Desktop dropdown menu
-// ─────────────────────────────────────────────
-
-function DesktopMenu({ user }: { user: UserDataResponse | undefined }) {
-  const [open, setOpen] = useState(false);
-  const [jobOpen, setJobOpen] = useState(false);
-  const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  // Close on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  return (
-    <div className='relative' ref={ref}>
-      <button
-        onClick={() => setOpen(prev => !prev)}
-        className='flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white hover:border-gray-400 transition text-sm font-medium'
-      >
-        <Menu className='w-4 h-4' />
-        <span>Меню</span>
-        <ChevronDown
-          className={cn(
-            'w-3 h-3 text-gray-400 transition-transform',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -8, scale: 0.97 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -8, scale: 0.97 }}
-            transition={{ duration: 0.15 }}
-            className='absolute left-0 top-full mt-2 w-56 bg-white border border-gray-100 rounded-xl shadow-lg z-50 overflow-hidden py-1'
-          >
-            <DropdownLink
-              icon={<ClipboardList className='w-4 h-4' />}
-              label='Личная информация'
-              href={`${ROUTES.PROFILE}/info`}
-              onClick={() => setOpen(false)}
-            />
-            <DropdownLink
-              icon={<Heart className='w-4 h-4' />}
-              label='Избранное'
-              href={ROUTES.FAVORITES}
-              onClick={() => setOpen(false)}
-            />
-            <DropdownLink
-              icon={<PlusSquare className='w-4 h-4' />}
-              label='Создать объявление'
-              href={ROUTES.CREATE_ADVERTISEMENT}
-              onClick={() => setOpen(false)}
-            />
-
-            {/* Работа accordion */}
-            <button
-              onClick={() => setJobOpen(prev => !prev)}
-              className='w-full flex items-center justify-between gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition'
-            >
-              <span className='flex items-center gap-2'>
-                <Briefcase className='w-4 h-4' />
-                Работа
-              </span>
-              <ChevronDown
-                className={cn(
-                  'w-3 h-3 text-gray-400 transition-transform',
-                  jobOpen && 'rotate-180',
-                )}
-              />
-            </button>
-
-            <AnimatePresence>
-              {jobOpen && (
-                <motion.div
-                  initial={{ height: 0, opacity: 0 }}
-                  animate={{ height: 'auto', opacity: 1 }}
-                  exit={{ height: 0, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  className='overflow-hidden bg-gray-50'
-                >
-                  <DropdownLink
-                    icon={<FileText className='w-4 h-4' />}
-                    label='Мои вакансии'
-                    href={ROUTES.MY_VACANCY}
-                    onClick={() => setOpen(false)}
-                    indent
-                  />
-                  <DropdownLink
-                    icon={<Pencil className='w-4 h-4' />}
-                    label='Создать вакансию'
-                    href={ROUTES.CREATE_VACANCY}
-                    onClick={() => setOpen(false)}
-                    indent
-                  />
-                  <DropdownLink
-                    icon={<FileText className='w-4 h-4' />}
-                    label='Мои резюме'
-                    href={ROUTES.MY_RESUME}
-                    onClick={() => setOpen(false)}
-                    indent
-                  />
-                  <DropdownLink
-                    icon={<Pencil className='w-4 h-4' />}
-                    label='Создать резюме'
-                    href={ROUTES.CREATE_RESUME}
-                    onClick={() => setOpen(false)}
-                    indent
-                  />
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {!user?.username && (
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  setTgConfirmOpen(true);
-                }}
-                className='w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition'
-              >
-                <TgIcon2 className='w-4 h-4' />
-                Привязать телеграм
-              </button>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <TgConfirmModal
-        open={tgConfirmOpen}
-        onClose={() => setTgConfirmOpen(false)}
-        value={user?.url ?? ''}
-      />
-    </div>
-  );
-}
-
-function DropdownLink({
-  icon,
-  label,
-  href,
-  onClick,
-  indent = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  href: string;
-  onClick?: () => void;
-  indent?: boolean;
-}) {
-  return (
-    <Link
-      href={href}
-      onClick={onClick}
-      className={cn(
-        'flex items-center gap-2 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition',
-        indent ? 'px-8' : 'px-4',
+      {/* Grid */}
+      {isProductsLoading && (
+        <div className='grid grid-cols-4 gap-4'>
+          {Array.from({ length: 8 }).map((_, i) => (
+            <ProductCard key={i} isLoading />
+          ))}
+        </div>
       )}
-    >
-      {icon}
-      {label}
-    </Link>
+
+      {!isProductsLoading && filtered.length === 0 && (
+        <div className='flex flex-col items-center justify-center py-24 text-gray-400'>
+          <div className='text-4xl mb-3'>📦</div>
+          <div>{allItems.length === 0 ? 'Объявлений пока нет' : 'Ничего не найдено'}</div>
+        </div>
+      )}
+
+      {!isProductsLoading && filtered.length > 0 && (
+        <div className='grid grid-cols-4 gap-4'>
+          {filtered.map(product => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              hideFavorite
+              showDelete
+              onDelete={handleDelete}
+              showPosting
+              onPosting={handlePosting}
+              href={`${ROUTES.EDIT_ADVERTISEMENT}/${product.id}`}
+              showStatus
+            />
+          ))}
+        </div>
+      )}
+    </>
   );
 }
 
 // ─────────────────────────────────────────────
-// Mobile menu (existing behavior)
+// Mobile menu (unchanged)
 // ─────────────────────────────────────────────
 
 function MobileMenu({ user }: { user: UserDataResponse | undefined }) {
@@ -584,28 +541,12 @@ function MobileMenu({ user }: { user: UserDataResponse | undefined }) {
             <div className='relative bg-white rounded-xl grid grid-cols-2 gap-4'>
               <div className='absolute top-0 bottom-0 left-1/2 w-px bg-gray-200 z-0' />
               <div className='z-10 flex flex-col gap-4 p-4'>
-                <SubItem
-                  icon={<FileText className='w-5 h-5' />}
-                  label='Мои вакансии'
-                  href={ROUTES.MY_VACANCY}
-                />
-                <SubItem
-                  icon={<Pencil className='w-5 h-5' />}
-                  label='Создать вакансию'
-                  href={ROUTES.CREATE_VACANCY}
-                />
+                <SubItem icon={<FileText className='w-5 h-5' />} label='Мои вакансии' href={ROUTES.MY_VACANCY} />
+                <SubItem icon={<Pencil className='w-5 h-5' />} label='Создать вакансию' href={ROUTES.CREATE_VACANCY} />
               </div>
               <div className='z-10 flex flex-col gap-4 p-4'>
-                <SubItem
-                  icon={<FileText className='w-5 h-5' />}
-                  label='Мои резюме'
-                  href={ROUTES.MY_RESUME}
-                />
-                <SubItem
-                  icon={<Pencil className='w-5 h-5' />}
-                  label='Создать резюме'
-                  href={ROUTES.CREATE_RESUME}
-                />
+                <SubItem icon={<FileText className='w-5 h-5' />} label='Мои резюме' href={ROUTES.MY_RESUME} />
+                <SubItem icon={<Pencil className='w-5 h-5' />} label='Создать резюме' href={ROUTES.CREATE_RESUME} />
               </div>
             </div>
           </motion.div>
@@ -630,12 +571,7 @@ function MobileMenu({ user }: { user: UserDataResponse | undefined }) {
 }
 
 function ProfileItem({
-  icon,
-  label,
-  onClick,
-  href,
-  rightIcon,
-  disabled,
+  icon, label, onClick, href, rightIcon, disabled,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -671,11 +607,7 @@ function ProfileItem({
 }
 
 function SubItem({
-  icon,
-  label,
-  href,
-  onClick,
-  disabled,
+  icon, label, href, onClick, disabled,
 }: {
   icon: React.ReactNode;
   label: string;
@@ -713,7 +645,6 @@ function LogoutButton() {
     <button
       onClick={handleLogout}
       className='flex items-center gap-2 px-3 py-2 rounded-lg text-white bg-red-500 hover:bg-red-600 transition-colors cursor-pointer'
-      title='Выйти'
     >
       <span className='text-sm font-medium'>Выйти</span>
     </button>
