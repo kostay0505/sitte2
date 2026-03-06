@@ -18,6 +18,8 @@ export type ProductBasic = {
   preview: string;
   description: string;
   isNew: boolean;
+  categoryId?: string | null;
+  category?: CategoryBasic | null;
   isFavorite: boolean;
   status: StatusType;
   url?: string;

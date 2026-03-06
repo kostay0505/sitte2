@@ -175,7 +175,10 @@ export default function SellerPage() {
   );
   const availableCategoryIds = useMemo(() => {
     const ids = new Set<string>();
-    allProductsQuery.items.forEach(p => { if (p.category?.id) ids.add(p.category.id); });
+    allProductsQuery.items.forEach(p => {
+      const catId = p.category?.id ?? p.categoryId;
+      if (catId) ids.add(catId);
+    });
     return ids;
   }, [allProductsQuery.items]);
   const visibleCategories = useMemo(
