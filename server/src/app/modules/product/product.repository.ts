@@ -67,6 +67,7 @@ export interface ProductShortRow {
   productFavorite_isActive: boolean;
   createdAt: Date;
   url?: string;
+  categoryId?: string | null;
 }
 
 @Injectable()
@@ -179,6 +180,7 @@ export class ProductRepository {
       isNew,
       isFavorite: row.productFavorite_isActive,
       url,
+      categoryId: row.categoryId ?? null,
     };
   }
 
@@ -592,7 +594,8 @@ export class ProductRepository {
                 product.preview,
                 product.description,
                 product.status,
-                product.createdAt
+                product.createdAt,
+                product.categoryId
                 ${favoriteProductsQuerySelect}
             FROM ${products} product
             ${favoriteProductsQueryLeftJoin}

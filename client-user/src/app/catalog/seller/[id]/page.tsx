@@ -239,7 +239,7 @@ export default function SellerPage() {
 
         {/* ── Info block ─────────────────────────────────────── */}
         <div className='max-w-[1280px] mx-auto w-full px-4 md:px-6'>
-          <div className='flex items-start gap-4 py-5 border-b border-gray-100'>
+          <div className='flex items-start gap-4 py-5'>
             {/* Avatar */}
             <div className='shrink-0'>
               {sellerLoading ? (
@@ -295,46 +295,45 @@ export default function SellerPage() {
 
             {/* Actions */}
             {!sellerLoading && (
-              <div className='flex items-center gap-2 shrink-0'>
-                <button
-                  disabled
-                  className='hidden md:flex items-center gap-1.5 text-sm font-medium border border-gray-300 text-gray-500 px-4 py-2 rounded-full cursor-not-allowed opacity-60'
-                >
-                  <UserPlus className='w-4 h-4' />
-                  Follow
-                </button>
-
-                {isAuthorized && !isOwner && (
+              <div className='flex flex-col items-end gap-3 shrink-0'>
+                <div className='flex items-center gap-2'>
                   <button
-                    onClick={() => router.push(`${ROUTES.CHATS}/${seller?.tgId}`)}
-                    className='flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 text-gray-600 hover:text-black hover:border-gray-500 transition'
-                    title='Написать продавцу'
+                    disabled
+                    className='hidden md:flex items-center gap-1.5 text-sm font-medium border border-gray-300 text-gray-500 px-4 py-2 rounded-full cursor-not-allowed opacity-60'
                   >
-                    <MessageSquare className='w-4 h-4' />
+                    <UserPlus className='w-4 h-4' />
+                    Follow
                   </button>
-                )}
 
-                <button
-                  className='flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 text-gray-600 hover:text-black hover:border-gray-500 transition'
-                  title='Ещё'
-                >
-                  <MoreHorizontal className='w-4 h-4' />
-                </button>
+                  {isAuthorized && !isOwner && (
+                    <button
+                      onClick={() => router.push(`${ROUTES.CHATS}/${seller?.tgId}`)}
+                      className='flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 text-gray-600 hover:text-black hover:border-gray-500 transition'
+                      title='Написать продавцу'
+                    >
+                      <MessageSquare className='w-4 h-4' />
+                    </button>
+                  )}
+
+                  <button
+                    className='flex items-center justify-center w-9 h-9 rounded-full border border-gray-300 text-gray-600 hover:text-black hover:border-gray-500 transition'
+                    title='Ещё'
+                  >
+                    <MoreHorizontal className='w-4 h-4' />
+                  </button>
+                </div>
+
+                <div className='hidden md:flex items-center border border-gray-300 rounded-full overflow-hidden bg-white hover:border-gray-400 transition'>
+                  <input
+                    type='text'
+                    value={searchInput}
+                    onChange={e => setSearchInput(e.target.value)}
+                    placeholder='Search'
+                    className='px-4 py-1.5 text-sm text-black outline-none w-52'
+                  />
+                </div>
               </div>
             )}
-          </div>
-
-          {/* ── Search ──────────────────────────────────────── */}
-          <div className='hidden md:flex py-3 border-b border-gray-100'>
-            <div className='flex items-center border border-gray-300 rounded-full overflow-hidden bg-white hover:border-gray-400 transition'>
-              <input
-                type='text'
-                value={searchInput}
-                onChange={e => setSearchInput(e.target.value)}
-                placeholder='Search'
-                className='px-4 py-1.5 text-sm text-black outline-none w-64'
-              />
-            </div>
           </div>
 
           {/* ── Category tabs ────────────────────────────────── */}

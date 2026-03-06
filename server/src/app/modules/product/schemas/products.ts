@@ -77,6 +77,7 @@ export type ProductShort = {
     isFavorite: boolean;
     url?: string;
     viewCount?: number;
+    categoryId?: string | null;
 };
 
 export type NewProduct = InferInsertModel<typeof products>;
