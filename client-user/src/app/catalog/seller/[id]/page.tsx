@@ -19,6 +19,7 @@ import { ROUTES } from '@/config/routes';
 import { toImageSrc } from '@/utils/toImageSrc';
 import { uploadFile } from '@/api/files/methods';
 import { updateBannerUrl } from '@/api/user/methods';
+import { Footer } from '@/components/Footer';
 
 const DESKTOP_HEADER_HEIGHT = 116;
 
@@ -378,6 +379,8 @@ export default function SellerPage() {
             )}
           </div>
         </div>
+
+        <Footer />
       </SellerScrollContainer>
 
       {bannerModalOpen && (
