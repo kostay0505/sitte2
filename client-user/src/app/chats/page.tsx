@@ -28,9 +28,9 @@ export default function ChatsPage() {
   if (!isAuthorized) return null;
 
   return (
-    <div className="min-h-screen bg-white">
-      <div className="sticky top-0 z-10 bg-white border-b border-gray-200 px-4 py-4">
-        <h1 className="text-xl font-bold text-gray-900">Диалоги</h1>
+    <div className="min-h-screen bg-white md:pt-[100px]">
+      <div className="sticky top-0 md:top-[100px] z-10 bg-white border-b border-gray-200 px-4 py-4">
+        <h1 className="text-xl font-bold text-gray-900">Чаты</h1>
       </div>
       {isLoading ? (
         <div className="flex justify-center py-16">

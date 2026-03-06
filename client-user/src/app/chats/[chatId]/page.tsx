@@ -56,9 +56,9 @@ export default function ChatPage({ params }: Props) {
     : '';
 
   return (
-    <div className="flex flex-col h-screen bg-white">
-      {/* Header */}
-      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 sticky top-0 z-10">
+    <div className="flex flex-col h-screen bg-white md:h-[calc(100vh-100px)] md:mt-[100px]">
+      {/* Inner header */}
+      <div className="flex items-center gap-3 px-4 py-3 bg-white border-b border-gray-200 flex-shrink-0">
         <button onClick={() => router.back()} className="text-gray-600">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />

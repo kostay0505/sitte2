@@ -96,7 +96,7 @@ export default function ProfilePage() {
     <ProtectedRoute>
       <Page back={true}>
         {/* Desktop layout */}
-        <div className='hidden md:flex md:min-h-screen md:text-black'>
+        <div className='hidden md:flex md:min-h-screen md:text-black md:pt-[100px]'>
           <DesktopLayout
             me={me}
             isLoading={isLoading}
