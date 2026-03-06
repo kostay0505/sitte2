@@ -17,6 +17,7 @@ export const users = mysqlTable('Users', {
   firstName: varchar('firstName', { length: 255 }),
   lastName: varchar('lastName', { length: 255 }),
   photoUrl: varchar('photoUrl', { length: 255 }),
+  bannerUrl: varchar('bannerUrl', { length: 255 }),
   email: varchar('email', { length: 255 }),
   phone: varchar('phone', { length: 20 }),
   cityId: char('cityId', { length: 36 }),
@@ -67,6 +68,7 @@ export type UserShort = {
   firstName: string | null;
   lastName: string | null;
   photoUrl: string | null;
+  bannerUrl: string | null;
   email: string | null;
   phone: string | null;
   city: CityShort | null;

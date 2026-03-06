@@ -35,6 +35,14 @@ export async function getUserSeller(id: string): Promise<UserBasic> {
   }
 }
 
+export async function updateBannerUrl(bannerUrl: string | null): Promise<void> {
+  try {
+    await api.put('/users', { bannerUrl });
+  } catch (error: any) {
+    throw new Error(pickErrorMessage(error, 'Не удалось обновить баннер'));
+  }
+}
+
 export async function mergeAccounts(
   email: string,
   password: string,

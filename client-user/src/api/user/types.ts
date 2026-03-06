@@ -11,6 +11,7 @@ export type UserDataResponse = {
   country: string;
   subscribedToNewsletter: boolean;
   photoUrl: string | null;
+  bannerUrl: string | null;
   emailVerified: boolean;
   url?: string;
 };
@@ -24,6 +25,7 @@ export type UserBasic = {
   phone: string | null;
   city: City | null;
   photoUrl: string | null;
+  bannerUrl?: string | null;
   url?: string;
 };
 

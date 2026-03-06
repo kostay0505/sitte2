@@ -40,6 +40,7 @@ export interface UserShortRow {
   firstName: string | null;
   lastName: string | null;
   photoUrl: string | null;
+  bannerUrl?: string | null;
   email: string | null;
   phone: string | null;
   city_id: string | null;
@@ -104,6 +105,7 @@ export class UserRepository {
       firstName: row.firstName,
       lastName: row.lastName,
       photoUrl: row.photoUrl,
+      bannerUrl: row.bannerUrl ?? null,
       email: row.email,
       phone: row.phone,
       city
@@ -258,12 +260,13 @@ export class UserRepository {
 
   async findShortById(tgId: string): Promise<UserShort | null> {
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 user.tgId,
                 user.username,
                 user.firstName,
                 user.lastName,
                 user.photoUrl,
+                user.bannerUrl,
                 user.email,
                 user.phone,
                 city.id as city_id,

@@ -25,6 +25,10 @@ export class UpdateUserDto {
   photoUrl?: string | null;
 
   @IsOptional()
+  @IsString()
+  bannerUrl?: string | null;
+
+  @IsOptional()
   @IsEmail()
   email?: string | null;
 
