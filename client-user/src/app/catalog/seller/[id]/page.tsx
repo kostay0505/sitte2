@@ -21,7 +21,7 @@ import { uploadFile } from '@/api/files/methods';
 import { updateBannerUrl } from '@/api/user/methods';
 import { Footer } from '@/components/Footer';
 
-const DESKTOP_HEADER_HEIGHT = 116;
+const DESKTOP_HEADER_HEIGHT = 149;
 
 function SellerScrollContainer({ children }: { children: React.ReactNode }) {
   const { width } = useWindowResize();

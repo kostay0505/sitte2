@@ -3,6 +3,7 @@
 import React, { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/utils/cn';
+import { CategoryNav } from '@/components/home/CategoryNav';
 import { TgIcon2, LogoIcon } from './common/SvgIcon';
 import { Briefcase, DoorOpen, Globe, LayoutGrid, MessageCircle, Search, UserRound } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
@@ -279,6 +280,7 @@ export const Tabs: React.FC = memo(() => {
       <div className='hidden md:block fixed top-0 left-0 right-0 z-50 bg-white shadow-sm'>
         <Preheader />
         <DesktopHeader />
+        <CategoryNav />
       </div>
 
       <LoginModal

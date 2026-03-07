@@ -6,7 +6,6 @@ import { Page } from '@/components/Page';
 import { HomeBanner } from '@/components/home/HomeBanner';
 import { HomeProductCarousel } from '@/components/home/HomeProductCarousel';
 import { HomeBrandCarousel } from '@/components/home/HomeBrandCarousel';
-import { CategoryNav } from '@/components/home/CategoryNav';
 import { Footer } from '@/components/Footer';
 import { getHomeCategories, getTouringExpertProducts, getBestsellers } from '@/api/home/methods';
 import { getSiteContentAll } from '@/api/site-content/methods';
@@ -25,7 +24,7 @@ function parseBanner(raw: any): BannerContent | null {
   return null;
 }
 
-const DESKTOP_HEADER_HEIGHT = 116;
+const DESKTOP_HEADER_HEIGHT = 149;
 
 function HomeScrollContainer({ children }: { children: React.ReactNode }) {
   const { width } = useWindowResize();
@@ -61,9 +60,6 @@ export default function Home() {
   return (
     <Page back={false}>
       <HomeScrollContainer>
-        {/* Category nav — full-width naturally (no max-width parent) */}
-        <CategoryNav />
-
         {/* Banner 1 — full-width naturally */}
         {banner1 && <HomeBanner content={banner1} />}
 

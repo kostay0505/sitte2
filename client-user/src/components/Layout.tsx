@@ -8,7 +8,7 @@ import PageTransition from './PageTransition';
 import { useWindowResize } from '@/hooks/useWindowResize';
 import { Footer } from './Footer';
 const TABS_HEIGHT = 60 + 16;
-const TABS_DESKTOP_HEIGHT = 116;
+const TABS_DESKTOP_HEIGHT = 149;
 
 export const Layout: React.FC<PropsWithChildren<{ className?: string }>> = ({
   children,
