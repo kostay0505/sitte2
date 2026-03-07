@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Camera, MessageSquare, MoreHorizontal, UserPlus, X } from 'lucide-react';
 
 import { Page } from '@/components/Page';
+import { Layout } from '@/components/Layout';
 import { ProductCard } from '@/components/Catalog/ProductCard';
 import { Skeleton } from '@/components/common/Skeleton/Skeleton';
 import { cn } from '@/utils/cn';
