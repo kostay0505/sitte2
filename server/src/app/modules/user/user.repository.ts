@@ -32,6 +32,7 @@ export interface UserRow {
   emailVerificationCode: string | null;
   resetPasswordCode: string | null;
   passwordHash: string | null;
+  role: string | null;
 }
 
 export interface UserShortRow {
@@ -43,6 +44,7 @@ export interface UserShortRow {
   bannerUrl?: string | null;
   email: string | null;
   phone: string | null;
+  role?: string | null;
   city_id: string | null;
   city_name: string | null;
   country_id: string | null;
@@ -85,7 +87,8 @@ export class UserRepository {
       emailVerified: row.emailVerified ?? false,
       emailVerificationCode: row.emailVerificationCode ?? null,
       resetPasswordCode: row.resetPasswordCode ?? null,
-      passwordHash: row.passwordHash ?? null
+      passwordHash: row.passwordHash ?? null,
+      role: (row.role as any) ?? 'user'
     };
   }
 
@@ -108,13 +111,14 @@ export class UserRepository {
       bannerUrl: row.bannerUrl ?? null,
       email: row.email,
       phone: row.phone,
+      role: (row.role as any) ?? 'user',
       city
     };
   }
 
   async findAll(): Promise<User[]> {
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 user.tgId,
                 user.username,
                 user.firstName,
@@ -125,6 +129,7 @@ export class UserRepository {
                 user.subscribedToNewsletter,
                 user.isActive,
                 user.isBanned,
+                user.role,
                 city.id as city_id,
                 city.name as city_name,
                 city.isActive as city_isActive,
@@ -146,7 +151,7 @@ export class UserRepository {
 
   async findById(tgId: string): Promise<User | null> {
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 user.tgId,
                 user.username,
                 user.firstName,
@@ -158,6 +163,7 @@ export class UserRepository {
                 user.subscribedToNewsletter,
                 user.isActive,
                 user.emailVerified,
+                user.role,
                 city.id as city_id,
                 city.name as city_name,
                 city.isActive as city_isActive,
@@ -179,7 +185,7 @@ export class UserRepository {
 
   async findByEmail(email: string): Promise<User | null> {
     const result = (await this.db.execute(sql`
-                SELECT 
+                SELECT
                     user.tgId,
                     user.username,
                     user.firstName,
@@ -194,7 +200,7 @@ export class UserRepository {
                     user.emailVerificationCode,
                     user.resetPasswordCode,
                     user.passwordHash,
-                    user.isBanned,
+                    user.role,
                     city.id as city_id,
                     city.name as city_name,
                     city.isActive as city_isActive,
@@ -214,7 +220,7 @@ export class UserRepository {
 
   async findByShortHash(shortHash: string): Promise<User | null> {
     const result = (await this.db.execute(sql`
-                SELECT 
+                SELECT
                     user.tgId,
                     user.username,
                     user.firstName,
@@ -229,7 +235,7 @@ export class UserRepository {
                     user.emailVerificationCode,
                     user.resetPasswordCode,
                     user.passwordHash,
-                    user.isBanned,
+                    user.role,
                     city.id as city_id,
                     city.name as city_name,
                     city.isActive as city_isActive,
@@ -269,6 +275,7 @@ export class UserRepository {
                 user.bannerUrl,
                 user.email,
                 user.phone,
+                user.role,
                 city.id as city_id,
                 city.name as city_name,
                 country.id as country_id,

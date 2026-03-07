@@ -27,6 +27,7 @@ export type UserBasic = {
   city: City | null;
   photoUrl: string | null;
   bannerUrl?: string | null;
+  role?: 'user' | 'shop' | 'admin';
   url?: string;
 };
 

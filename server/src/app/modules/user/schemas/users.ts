@@ -34,7 +34,8 @@ export const users = mysqlTable('Users', {
   emailVerified: boolean('emailVerified').default(false).notNull(),
   passwordHash: varchar('passwordHash', { length: 255 }),
   emailVerificationCode: varchar('emailVerificationCode', { length: 255 }),
-  resetPasswordCode: varchar('resetPasswordCode', { length: 255 })
+  resetPasswordCode: varchar('resetPasswordCode', { length: 255 }),
+  role: varchar('role', { length: 50 }).default('user').notNull()
 });
 
 export const usersRelations = relations(users, ({ many }) => ({
@@ -42,6 +43,8 @@ export const usersRelations = relations(users, ({ many }) => ({
   accountTokens: many(accountTokens),
   refreshTokens: many(refreshTokens)
 }));
+
+export type UserRole = 'user' | 'shop' | 'admin';
 
 export type User = {
   tgId: string;
@@ -59,6 +62,7 @@ export type User = {
   emailVerificationCode: string | null;
   resetPasswordCode: string | null;
   passwordHash: string | null;
+  role: UserRole;
   url?: string;
 };
 
@@ -72,5 +76,6 @@ export type UserShort = {
   email: string | null;
   phone: string | null;
   city: CityShort | null;
+  role: UserRole;
   url?: string;
 };
