@@ -18,7 +18,9 @@ import {
   Settings,
   LogOut,
   Search,
+  Store,
 } from 'lucide-react';
+import { BusinessPageEditor } from '@/components/business/BusinessPageEditor';
 import { TgIcon2 } from '@/components/common/SvgIcon';
 import { Switch } from '@/components/common/Switch/Switch';
 import { ROUTES } from '@/config/routes';
@@ -156,6 +158,8 @@ function DesktopLayout({
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [jobOpen, setJobOpen] = useState(false);
   const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
+  const [businessEditorOpen, setBusinessEditorOpen] = useState(false);
+  const isBusinessUser = me?.role === 'shop' || me?.role === 'admin';
 
   const router = useRouter();
   const setAuthorized = useAuthStore(s => s.setAuthorized);
@@ -205,6 +209,17 @@ function DesktopLayout({
             <PlusSquare className='w-4 h-4' />
             Создать
           </Link>
+
+          {/* Бизнес-страница — только для shop/admin */}
+          {isBusinessUser && (
+            <button
+              onClick={() => setBusinessEditorOpen(true)}
+              className='w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition text-left'
+            >
+              <Store className='w-4 h-4' />
+              Бизнес-страница
+            </button>
+          )}
 
           {/* Работа accordion */}
           <button
@@ -286,6 +301,7 @@ function DesktopLayout({
       </main>
 
       <TgConfirmModal open={tgConfirmOpen} onClose={() => setTgConfirmOpen(false)} value={me?.url ?? ''} />
+      <BusinessPageEditor isOpen={businessEditorOpen} onClose={() => setBusinessEditorOpen(false)} />
     </div>
   );
 }
@@ -469,8 +485,13 @@ function FavoritesPanel() {
 function MobileMenu({ user }: { user: UserDataResponse | undefined }) {
   const [jobOpen, setJobOpen] = useState(false);
   const [tgConfirmOpen, setTgConfirmOpen] = useState(false);
+  const [businessEditorOpen, setBusinessEditorOpen] = useState(false);
+  const isBusinessUser = user?.role === 'shop' || user?.role === 'admin';
   return (
     <div className='space-y-2'>
+      {isBusinessUser && (
+        <ProfileItem icon={<Store className='w-5 h-5' />} label='Бизнес-страница' onClick={() => setBusinessEditorOpen(true)} />
+      )}
       <ProfileItem icon={<ClipboardList className='w-5 h-5' />} label='Личная информация' href={`${ROUTES.PROFILE}/info`} />
       <ProfileItem icon={<Heart className='w-5 h-5 fill-black' />} label='Избранное' href={ROUTES.FAVORITES} />
       <ProfileItem icon={<ClipboardList className='w-5 h-5' />} label='Мои объявления' href={ROUTES.MY_ADVERTISEMENTS} />
@@ -502,6 +523,7 @@ function MobileMenu({ user }: { user: UserDataResponse | undefined }) {
         <ProfileItem icon={<TgIcon2 className='w-5 h-5' />} label='Привязать телеграм' onClick={() => setTgConfirmOpen(true)} />
       )}
       <TgConfirmModal open={tgConfirmOpen} onClose={() => setTgConfirmOpen(false)} value={user?.url ?? ''} />
+      <BusinessPageEditor isOpen={businessEditorOpen} onClose={() => setBusinessEditorOpen(false)} />
     </div>
   );
 }

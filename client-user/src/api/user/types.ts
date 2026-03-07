@@ -13,6 +13,7 @@ export type UserDataResponse = {
   photoUrl: string | null;
   bannerUrl: string | null;
   emailVerified: boolean;
+  role?: 'user' | 'shop' | 'admin';
   url?: string;
 };
 
