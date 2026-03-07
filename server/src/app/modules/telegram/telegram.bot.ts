@@ -17,6 +17,7 @@ export class TelegramBot {
   readonly chatId: string;
   private readonly adminIds: string[];
   private readonly appUrl: string;
+  private cachedBotInfo: { username: string } | null = null;
 
   constructor(
     @Inject(forwardRef(() => UserService))
@@ -389,9 +390,11 @@ export class TelegramBot {
     return this.bot.api;
   }
   public async getBotInfo(): Promise<{ username: string }> {
+    if (this.cachedBotInfo) return this.cachedBotInfo;
     try {
       const botInfo = await this.bot.api.getMe();
-      return { username: botInfo.username };
+      this.cachedBotInfo = { username: botInfo.username };
+      return this.cachedBotInfo;
     } catch (error) {
       this.logger.error(`Error getting bot info: ${error.message}`);
       throw new Error('Не удалось получить информацию о боте');

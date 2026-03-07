@@ -9,7 +9,8 @@ import {
     Query,
     HttpCode,
     HttpStatus,
-    Request
+    Request,
+    NotFoundException,
 } from '@nestjs/common';
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -69,7 +70,7 @@ export class ProductController {
     ): Promise<Product> {
         const product = await this.service.findById(id, req?.user?.tgId ?? null);
         if (!product) {
-            throw new Error('Товар не найден');
+            throw new NotFoundException('Товар не найден');
         }
         return product;
     }

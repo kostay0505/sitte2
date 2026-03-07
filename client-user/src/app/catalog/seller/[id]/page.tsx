@@ -177,35 +177,6 @@ export default function SellerPage() {
   const { categoryOptions, all: allCategories } = useCategoryFilterOptions();
   const [activeCatId, setActiveCatId] = useState<string | null>(null);
 
-  /* ── All products (for category detection) ── */
-  const allProductsQuery = useInfiniteProductsFlat(
-    { sellerId: seller?.tgId ?? id, limit: 200 },
-    { enabled: !!seller },
-  );
-  const availableCategoryIds = useMemo(() => {
-    // Map child→parent so we can resolve sub-category IDs up to root
-    const childToParent = new Map<string, string>();
-    for (const cat of allCategories) {
-      if (cat.parentId) childToParent.set(cat.id, cat.parentId);
-    }
-    const ids = new Set<string>();
-    allProductsQuery.items.forEach(p => {
-      const catId = p.category?.id ?? p.categoryId;
-      if (!catId) return;
-      // Walk up to root
-      let cur: string | undefined = catId;
-      while (cur) {
-        ids.add(cur);
-        cur = childToParent.get(cur);
-      }
-    });
-    return ids;
-  }, [allProductsQuery.items, allCategories]);
-  const visibleCategories = useMemo(
-    () => categoryOptions.filter(cat => availableCategoryIds.has(cat.value)),
-    [categoryOptions, availableCategoryIds],
-  );
-
   /* ── Products ── */
   const query = useMemo(
     () => ({ sellerId: seller?.tgId ?? id, categoryId: activeCatId ?? undefined, limit: 24 }),
@@ -213,6 +184,29 @@ export default function SellerPage() {
   );
   const infinite = useInfiniteProductsFlat(query);
   const items = infinite.items;
+
+  /* ── Category tabs — derived from already-loaded items ── */
+  const availableCategoryIds = useMemo(() => {
+    const childToParent = new Map<string, string>();
+    for (const cat of allCategories) {
+      if (cat.parentId) childToParent.set(cat.id, cat.parentId);
+    }
+    const ids = new Set<string>();
+    items.forEach(p => {
+      const catId = p.category?.id ?? p.categoryId;
+      if (!catId) return;
+      let cur: string | undefined = catId;
+      while (cur) {
+        ids.add(cur);
+        cur = childToParent.get(cur);
+      }
+    });
+    return ids;
+  }, [items, allCategories]);
+  const visibleCategories = useMemo(
+    () => categoryOptions.filter(cat => availableCategoryIds.has(cat.value)),
+    [categoryOptions, availableCategoryIds],
+  );
   const isLoading = infinite.status === 'pending';
 
   /* ── Search ── */
