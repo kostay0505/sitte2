@@ -18,6 +18,12 @@ body {
     background: #fff;
   }
 }
+button,
+a,
+[role='button'] {
+  cursor: pointer;
+}
+
 input::selection,
 textarea::selection {
   background: #d4d4d4;
