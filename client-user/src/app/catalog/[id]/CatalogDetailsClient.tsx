@@ -138,25 +138,6 @@ export function CatalogDetailsClient() {
       </div>
     );
 
-  const chatButton = showChatButton ? (
-    <button
-      onClick={() => {
-        if (!isAuthorized) {
-          setAuthMode('login');
-          return;
-        }
-        handleOpenChat();
-      }}
-      disabled={chatLoading}
-      className='w-full flex items-center justify-center gap-2 bg-black hover:bg-black/80 text-white font-semibold py-3 px-4 rounded text-sm transition-colors disabled:opacity-60'
-    >
-      {chatLoading ? (
-        <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin' />
-      ) : (
-        'Написать продавцу'
-      )}
-    </button>
-  ) : null;
 
   return (
     <Page back={true}>
@@ -229,8 +210,16 @@ export function CatalogDetailsClient() {
               product={product}
               isLoading={isLoading}
               onShareClick={() => setShareOpen(true)}
+              showChatButton={showChatButton}
+              onChatClick={() => {
+                if (!isAuthorized) {
+                  setAuthMode('login');
+                  return;
+                }
+                handleOpenChat();
+              }}
+              chatLoading={chatLoading}
             />
-            {chatButton}
           </div>
         </div>
 

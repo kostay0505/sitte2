@@ -18,6 +18,9 @@ interface Props {
   className?: string;
   isLoading?: boolean;
   onShareClick?: () => void;
+  showChatButton?: boolean;
+  onChatClick?: () => void;
+  chatLoading?: boolean;
 }
 
 function Accordion({
@@ -54,6 +57,9 @@ export const ProductHeader: FC<Props> = ({
   className,
   isLoading,
   onShareClick,
+  showChatButton,
+  onChatClick,
+  chatLoading,
 }) => {
   const [qty, setQty] = useState(1);
   const [contactOpen, setContactOpen] = useState(false);
@@ -168,6 +174,22 @@ export const ProductHeader: FC<Props> = ({
           className='w-full bg-black text-white font-semibold py-3 rounded text-sm hover:bg-black/80 transition mb-2'
         >
           Add to cart{priceCash > 0 ? ` - ${formatCurrencyNumber(totalNonCash)}${sym}` : ''}
+        </button>
+      )}
+
+      {/* Chat button */}
+      {!isLoading && showChatButton && (
+        <button
+          type='button'
+          onClick={onChatClick}
+          disabled={chatLoading}
+          className='w-full bg-black text-white font-semibold py-3 rounded text-sm hover:bg-black/80 transition mb-2 disabled:opacity-60 flex items-center justify-center'
+        >
+          {chatLoading ? (
+            <div className='w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin' />
+          ) : (
+            'Написать продавцу'
+          )}
         </button>
       )}
 
