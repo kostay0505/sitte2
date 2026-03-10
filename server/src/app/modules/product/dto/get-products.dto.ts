@@ -40,6 +40,10 @@ export class GetProductsDto {
     isFavorite?: boolean;
 
     @IsOptional()
+    @IsString()
+    search?: string;
+
+    @IsOptional()
     @IsEnum(OrderBy)
     orderBy?: OrderBy = OrderBy.DATE;
 
