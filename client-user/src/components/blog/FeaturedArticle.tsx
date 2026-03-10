@@ -29,7 +29,7 @@ export const FeaturedArticle: React.FC<FeaturedArticleProps> = ({ article, secti
       </Link>
 
       {/* Info */}
-      <div className='md:w-[42%] p-6 md:p-10 flex flex-col justify-center bg-white border border-gray-100'>
+      <div className='md:w-[42%] p-6 md:p-10 flex flex-col justify-center bg-white'>
         {article.categoryName && (
           <p className='text-xs font-semibold text-gray-500 uppercase tracking-widest mb-3'>
             {article.categoryName}

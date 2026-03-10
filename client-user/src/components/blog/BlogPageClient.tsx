@@ -52,7 +52,7 @@ export const BlogPageClient: React.FC<BlogPageClientProps> = ({ section, title, 
   };
 
   return (
-    <div className='max-w-[1200px] mx-auto px-6 py-10'>
+    <div className='max-w-[1200px] mx-auto px-6 pt-16 pb-10'>
       {/* Header */}
       <div className='flex flex-col md:flex-row md:items-center gap-4 mb-8'>
         <h1 className='text-3xl md:text-4xl font-medium text-gray-900 flex-shrink-0'>{title}</h1>
@@ -91,7 +91,7 @@ export const BlogPageClient: React.FC<BlogPageClientProps> = ({ section, title, 
       )}
 
       {/* Category tabs */}
-      <div className='flex items-center gap-6 border-b border-gray-200 mb-8 overflow-x-auto pb-0'>
+      <div className='flex items-center gap-6 border-b border-gray-200 mb-8 flex-wrap'>
         <button
           onClick={() => handleCategoryChange(null)}
           className={[
