@@ -87,10 +87,19 @@ const navStructure: NavEntry[] = [
     path: '/mail',
   },
   {
-    type: 'link',
-    title: 'Парсинг',
+    type: 'group',
+    label: 'Парсинг',
     icon: '🔄',
-    path: '/parsing',
+    items: [
+      { title: 'Arrius',      path: '/parsing/arrius' },
+      { title: 'Gebraucht',   path: '/parsing/gebraucht' },
+      { title: 'AVL France',  path: '/parsing/avl-france' },
+      { title: 'UsedFull',    path: '/parsing/usedfull' },
+      { title: 'CueSale',     path: '/parsing/cuesale' },
+      { title: 'PA Audio',    path: '/parsing/pa-audio' },
+      { title: 'GearWise',    path: '/parsing/gearwise' },
+      { title: 'AVLS',        path: '/parsing/avls' },
+    ],
   },
   {
     type: 'link',
