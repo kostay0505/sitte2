@@ -20,13 +20,16 @@ export const Layout: React.FC<PropsWithChildren<{ className?: string }>> = ({
   const [insets, setInsets] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
   useEffect(() => { setInsets(viewport.safeAreaInsets()); }, []);
 
+  const isVisible = useHeaderStore(s => s.isVisible);
+
   const containerStyles = useMemo(
     () => ({
       paddingTop: !isMobile
-        ? `${TABS_DESKTOP_HEIGHT + insets.top}px`
+        ? `${(isVisible ? TABS_DESKTOP_HEIGHT : 0) + insets.top}px`
         : `${insets.top}px`,
+      transition: 'padding-top 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     }),
-    [insets.top, isMobile],
+    [insets.top, isMobile, isVisible],
   );
 
   const lastScrollY = useRef(0);
