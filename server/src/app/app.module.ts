@@ -33,6 +33,7 @@ import { SiteContentModule } from './modules/site-content/site-content.module';
 import { CrmModule } from './modules/crm/crm.module';
 import { DriveModule } from './modules/drive/drive.module';
 import { ArticlesModule } from './modules/articles/articles.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -111,6 +112,7 @@ import { ArticlesModule } from './modules/articles/articles.module';
     CrmModule,
     DriveModule,
     ArticlesModule,
+    DashboardModule,
   ],
   controllers: [],
   providers: [Logger]
