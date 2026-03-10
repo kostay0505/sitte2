@@ -52,9 +52,9 @@ export const BlogPageClient: React.FC<BlogPageClientProps> = ({ section, title, 
   };
 
   return (
-    <div className='max-w-[1200px] mx-auto px-6 pt-16 pb-10'>
+    <div className='max-w-[1200px] mx-auto px-6 pt-10 pb-10'>
       {/* Header */}
-      <div className='flex flex-col md:flex-row md:items-center gap-4 mb-8'>
+      <div className='flex flex-col md:flex-row md:items-center gap-4 mb-14'>
         <h1 className='text-3xl md:text-4xl font-medium text-gray-900 flex-shrink-0'>{title}</h1>
         <div className='flex items-center gap-6 md:ml-8'>
           <button
