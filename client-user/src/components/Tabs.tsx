@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useChatList } from '@/hooks/useChatList';
 import { useQuery } from '@tanstack/react-query';
 import { getSiteContentKey } from '@/api/site-content/methods';
+import { useHeaderStore } from '@/stores/headerStore';
 
 interface TabItem {
   path: string;
@@ -156,6 +157,23 @@ function DesktopHeader() {
   );
 }
 
+function DesktopHeaderWrapper() {
+  const isVisible = useHeaderStore(s => s.isVisible);
+  return (
+    <div
+      className='hidden md:block fixed top-0 left-0 right-0 z-50 bg-white'
+      style={{
+        transform: isVisible ? 'translateY(0)' : 'translateY(-100%)',
+        transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      <Preheader />
+      <DesktopHeader />
+      <CategoryNav />
+    </div>
+  );
+}
+
 export const Tabs: React.FC = memo(() => {
   const pathname = usePathname();
   const { push } = useRouter();
@@ -289,11 +307,7 @@ export const Tabs: React.FC = memo(() => {
       </div>
 
       {/* Desktop header */}
-      <div className='hidden md:block fixed top-0 left-0 right-0 z-50 bg-white shadow-sm'>
-        <Preheader />
-        <DesktopHeader />
-        <CategoryNav />
-      </div>
+      <DesktopHeaderWrapper />
 
       <LoginModal
         open={authMode === 'login'}

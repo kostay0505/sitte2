@@ -22,6 +22,7 @@ import { ImageWithSkeleton } from '@/components/common/ImageWithSkeleton/ImageWi
 import { ROUTES } from '@/config/routes';
 import { Link } from '@/components/Link/Link';
 import { ChatWidget } from '@/components/chat/ChatWidget';
+import { useHeaderStore } from '@/stores/headerStore';
 
 function mapMediaFiles(p?: Product): { url: string; type: 'image' | 'video' }[] {
   if (!p) return [];
@@ -75,6 +76,8 @@ export function CatalogDetailsClient() {
 
   const { data: product, status } = useProduct(id);
   const isLoading = status === 'pending';
+  const scrollY = useHeaderStore(s => s.scrollY);
+  const showStickyBar = scrollY > 180;
   const isAuthorized = useAuthStore(s => s.isAuthorized);
   const setAuthMode = useAuthStore(s => s.setAuthMode);
 
@@ -143,6 +146,30 @@ export function CatalogDetailsClient() {
 
   return (
     <Page back={true}>
+      {/* ── Sticky product bar (appears when scrolled past header) ── */}
+      {showStickyBar && product && (
+        <div className='fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 h-14 flex items-center gap-3'>
+          <span className='flex-1 text-sm font-semibold text-black truncate'>{product.name}</span>
+          {product.priceCash && (
+            <span className='text-sm font-bold text-black shrink-0'>
+              {product.priceCash} {product.currency}
+            </span>
+          )}
+          {showChatButton && (
+            <button
+              onClick={() => {
+                if (!isAuthorized) { setAuthMode('login'); return; }
+                handleOpenChat();
+              }}
+              disabled={chatLoading}
+              className='shrink-0 bg-black text-white text-xs font-medium px-3 py-1.5 rounded hover:bg-gray-800 transition disabled:opacity-60'
+            >
+              {chatLoading ? '...' : 'Написать'}
+            </button>
+          )}
+        </div>
+      )}
+
       <Layout className='px-4 pt-4 pb-8'>
         {/* ─── Main section: photos (left) + product info (right) ─── */}
         <div className='flex flex-col md:flex-row gap-6 mb-10'>

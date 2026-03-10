@@ -1,13 +1,14 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { PropsWithChildren } from 'react';
 import { cn } from '@/utils/cn';
 import { viewport } from '@tma.js/sdk-react';
 import PageTransition from './PageTransition';
 import { useWindowResize } from '@/hooks/useWindowResize';
 import { Footer } from './Footer';
-const TABS_HEIGHT = 60 + 16;
+import { useHeaderStore } from '@/stores/headerStore';
+
 const TABS_DESKTOP_HEIGHT = 149;
 
 export const Layout: React.FC<PropsWithChildren<{ className?: string }>> = ({
@@ -16,16 +17,8 @@ export const Layout: React.FC<PropsWithChildren<{ className?: string }>> = ({
 }) => {
   const isMobile = useWindowResize()?.width < 768;
 
-  const [insets, setInsets] = useState({
-    top: 0,
-    bottom: 0,
-    left: 0,
-    right: 0,
-  });
-
-  useEffect(() => {
-    setInsets(viewport.safeAreaInsets());
-  }, []);
+  const [insets, setInsets] = useState({ top: 0, bottom: 0, left: 0, right: 0 });
+  useEffect(() => { setInsets(viewport.safeAreaInsets()); }, []);
 
   const containerStyles = useMemo(
     () => ({
@@ -33,22 +26,38 @@ export const Layout: React.FC<PropsWithChildren<{ className?: string }>> = ({
         ? `${TABS_DESKTOP_HEIGHT + insets.top}px`
         : `${insets.top}px`,
     }),
-    [insets.bottom, insets.top, isMobile],
+    [insets.top, isMobile],
   );
 
+  const lastScrollY = useRef(0);
+  const setVisible = useHeaderStore(s => s.setVisible);
+  const setScrollY = useHeaderStore(s => s.setScrollY);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const current = e.currentTarget.scrollTop;
+    const prev = lastScrollY.current;
+
+    setScrollY(current);
+
+    if (current <= 10) {
+      setVisible(true);
+    } else if (current > prev + 4) {
+      setVisible(false);
+    } else if (current < prev - 4) {
+      setVisible(true);
+    }
+
+    lastScrollY.current = current;
+  }, [setVisible, setScrollY]);
+
   return (
-    <div
-      className={cn('relative h-full flex flex-col')}
-      style={containerStyles}
-    >
+    <div className={cn('relative h-full flex flex-col')} style={containerStyles}>
       <div
         className={cn('flex-1 overflow-y-auto scrollbar-hide flex flex-col')}
+        onScroll={handleScroll}
       >
         <PageTransition className={className}>{children}</PageTransition>
-        <div
-          className='mt-auto pt-5'
-          style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}
-        >
+        <div className='mt-auto pt-5' style={{ width: '100vw', marginLeft: 'calc(-50vw + 50%)' }}>
           <Footer />
         </div>
       </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Camera, MessageSquare, MoreHorizontal, UserPlus, X } from 'lucide-react';
 
@@ -15,6 +15,7 @@ import { useInfiniteProductsFlat } from '@/features/products/hooks';
 import { useCategoryFilterOptions } from '@/features/category/hooks';
 import { useAuthStore } from '@/stores/authStore';
 import { useWindowResize } from '@/hooks/useWindowResize';
+import { useHeaderStore } from '@/stores/headerStore';
 
 import { ROUTES } from '@/config/routes';
 import { toImageSrc } from '@/utils/toImageSrc';
@@ -29,9 +30,28 @@ function SellerScrollContainer({ children }: { children: React.ReactNode }) {
   const { width } = useWindowResize();
   const isMobile = width > 0 && width < 768;
   const paddingTop = isMobile ? 0 : DESKTOP_HEADER_HEIGHT;
+
+  const lastScrollY = useRef(0);
+  const setVisible = useHeaderStore(s => s.setVisible);
+  const setScrollY = useHeaderStore(s => s.setScrollY);
+
+  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const current = e.currentTarget.scrollTop;
+    const prev = lastScrollY.current;
+    setScrollY(current);
+    if (current <= 10) { setVisible(true); }
+    else if (current > prev + 4) { setVisible(false); }
+    else if (current < prev - 4) { setVisible(true); }
+    lastScrollY.current = current;
+  }, [setVisible, setScrollY]);
+
+  useEffect(() => {
+    return () => { setVisible(true); setScrollY(0); };
+  }, [setVisible, setScrollY]);
+
   return (
     <div className='relative h-full flex flex-col' style={{ paddingTop }}>
-      <div className='flex-1 overflow-y-auto scrollbar-hide'>
+      <div className='flex-1 overflow-y-auto scrollbar-hide' onScroll={handleScroll}>
         {children}
       </div>
     </div>
@@ -126,6 +146,9 @@ export default function SellerPage() {
 
   const { data: seller, status: sellerStatus, refetch: refetchSeller } = useSeller(id);
   const sellerLoading = sellerStatus === 'pending';
+
+  const scrollY = useHeaderStore(s => s.scrollY);
+  const showStickyBar = scrollY > 180;
 
   const isOwner = isAuthorized && !!userData && !!seller && userData.tgId === seller.tgId;
   const isBusinessUser = seller?.role === 'shop' || seller?.role === 'admin';
@@ -224,7 +247,6 @@ export default function SellerPage() {
           <Layout className='pb-10'>
             <BusinessPageView userId={seller.tgId} seller={seller} />
           </Layout>
-          <Footer />
         </SellerScrollContainer>
       </Page>
     );
@@ -234,6 +256,25 @@ export default function SellerPage() {
 
   return (
     <Page back={true}>
+      {/* ── Sticky seller bar (appears when scrolled past info) ── */}
+      {showStickyBar && seller && (
+        <div className='fixed top-0 left-0 right-0 z-40 bg-white border-b border-gray-100 shadow-sm px-4 h-14 flex items-center gap-3'>
+          <div className='w-8 h-8 rounded-full overflow-hidden bg-gray-200 shrink-0'>
+            {seller.photoUrl ? (
+              <img src={toImageSrc(seller.photoUrl)} alt={sellerName} className='w-full h-full object-cover' />
+            ) : (
+              <div className='w-full h-full flex items-center justify-center text-sm font-bold text-gray-400'>
+                {sellerName.charAt(0).toUpperCase()}
+              </div>
+            )}
+          </div>
+          <span className='font-semibold text-sm text-black truncate'>{sellerName}</span>
+          {locationBadge && (
+            <span className='text-xs text-gray-500 truncate hidden sm:block'>{locationBadge}</span>
+          )}
+        </div>
+      )}
+
       <SellerScrollContainer>
 
         {/* ── Banner ─────────────────────────────────────────── */}
