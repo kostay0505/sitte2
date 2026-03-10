@@ -18,6 +18,7 @@ export const BlogPageClient: React.FC<BlogPageClientProps> = ({ section, title, 
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const [activeNav, setActiveNav] = useState<'home' | 'news'>('home');
 
   const { data: categories = [] } = useQuery({
     queryKey: ['articleCategories', section],
@@ -60,14 +61,24 @@ export const BlogPageClient: React.FC<BlogPageClientProps> = ({ section, title, 
         <h1 className='text-3xl md:text-4xl font-medium text-gray-900 flex-shrink-0'>{title}</h1>
         <div className='flex items-center gap-6 md:ml-8'>
           <button
-            onClick={() => { setActiveCategoryId(null); setPage(1); setSearch(''); }}
-            className='text-sm font-medium text-gray-900 hover:underline'
+            onClick={() => { setActiveCategoryId(null); setPage(1); setSearch(''); setActiveNav('home'); }}
+            className={[
+              'text-sm pb-1 border-b-2 transition-colors',
+              activeNav === 'home'
+                ? 'font-semibold text-gray-900 border-gray-900'
+                : 'font-medium text-gray-500 border-transparent hover:text-gray-900',
+            ].join(' ')}
           >
             Home
           </button>
           <button
-            onClick={() => { setActiveCategoryId(null); setPage(1); }}
-            className='text-sm text-gray-500 hover:text-gray-900 hover:underline'
+            onClick={() => { setActiveCategoryId(null); setPage(1); setActiveNav('news'); }}
+            className={[
+              'text-sm pb-1 border-b-2 transition-colors',
+              activeNav === 'news'
+                ? 'font-semibold text-gray-900 border-gray-900'
+                : 'text-gray-500 border-transparent hover:text-gray-900',
+            ].join(' ')}
           >
             News & Guides
           </button>
