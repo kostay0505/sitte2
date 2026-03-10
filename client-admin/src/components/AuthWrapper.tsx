@@ -6,12 +6,9 @@ import { useAdminAuth } from '../hooks/useAdminAuth';
 import { SideNav } from './SideNav';
 import { adminLogout } from '../api/auth/methods';
 import { Button } from '@/components/ui/Button/Button';
-import { COLORS, SPACING, BORDER_RADIUS, SHADOWS } from '@/constants/ui';
 
-// Маршруты, которые не требуют авторизации
 const PUBLIC_ROUTES = ['/login'];
 
-// Контекст для управления заголовком страницы
 interface PageTitleContextType {
     pageTitle: string;
     setPageTitle: (title: string) => void;
@@ -21,10 +18,32 @@ const PageTitleContext = createContext<PageTitleContextType | undefined>(undefin
 
 export const usePageTitle = () => {
     const context = useContext(PageTitleContext);
-    if (!context) {
-        throw new Error('usePageTitle должен использоваться внутри AuthWrapper');
-    }
+    if (!context) throw new Error('usePageTitle должен использоваться внутри AuthWrapper');
     return context;
+};
+
+const sidebarCard: React.CSSProperties = {
+    backgroundColor: '#ffffff',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)',
+    border: '1px solid rgba(255,255,255,0.9)',
+};
+
+const glassCard: React.CSSProperties = {
+    backdropFilter: 'blur(24px)',
+    WebkitBackdropFilter: 'blur(24px)',
+    backgroundColor: 'rgba(255, 255, 255, 0.45)',
+    borderRadius: '20px',
+    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.18)',
+    border: '1px solid rgba(255,255,255,0.5)',
+};
+
+const bgStyle: React.CSSProperties = {
+    minHeight: '100vh',
+    display: 'flex',
+    padding: '16px',
+    gap: '16px',
+    boxSizing: 'border-box',
 };
 
 export function AuthWrapper({ children }: PropsWithChildren) {
@@ -42,110 +61,124 @@ export function AuthWrapper({ children }: PropsWithChildren) {
         }
     }, [loading, isPublicRoute, isAuthenticated, router]);
 
-    // Показываем загрузку пока проверяется авторизация
     if (loading) {
         return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '100vh',
-                backgroundColor: COLORS.GRAY[50],
-                fontSize: '16px',
-                color: COLORS.GRAY[500]
-            }}>
-                Проверка авторизации...
+            <div style={{ ...bgStyle, alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ ...glassCard, padding: '32px 48px', fontSize: '15px', color: '#475569' }}>
+                    Проверка авторизации...
+                </div>
             </div>
         );
     }
 
-    // Если это публичный маршрут, показываем содержимое без проверки авторизации
     if (isPublicRoute) {
         return <>{children}</>;
     }
 
-    // Если пользователь не авторизован на защищенном маршруте
     if (!isAuthenticated) {
         return (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                minHeight: '100vh',
-                backgroundColor: COLORS.GRAY[50],
-                fontSize: '16px',
-                color: COLORS.GRAY[500]
-            }}>
-                Перенаправление на страницу входа...
+            <div style={{ ...bgStyle, alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ ...glassCard, padding: '32px 48px', fontSize: '15px', color: '#475569' }}>
+                    Перенаправление на страницу входа...
+                </div>
             </div>
         );
     }
 
     const handleLogout = async () => {
-        try {
-            await adminLogout();
-        } catch (error) {
-            console.error('Ошибка при выходе:', error);
-        }
+        try { await adminLogout(); } catch {}
         router.push('/login');
     };
 
-    // Защищенный интерфейс с навигацией
+    const sidebarHeight = 'calc(100vh - 32px)';
+
     return (
         <PageTitleContext.Provider value={{ pageTitle, setPageTitle }}>
-            <div style={{
-                display: 'flex',
-                minHeight: '100vh',
-                backgroundColor: COLORS.GRAY[50]
-            }}>
-                <div className="desktop-sidenav">
+            <div style={bgStyle}>
+                {/* Sidebar */}
+                <div className="desktop-sidenav" style={{
+                    ...sidebarCard,
+                    width: '230px',
+                    flexShrink: 0,
+                    height: sidebarHeight,
+                    position: 'sticky',
+                    top: 0,
+                    overflowY: 'auto',
+                }}>
                     <SideNav />
                 </div>
-                <main style={{ flex: 1, padding: SPACING.XL, overflow: 'auto', position: 'relative' }}>
-                    {/* Заголовок с кнопкой выхода */}
+
+                {/* Main area */}
+                <main style={{
+                    ...glassCard,
+                    flex: 1,
+                    height: sidebarHeight,
+                    overflowY: 'auto',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    minWidth: 0,
+                }}>
+                    {/* Top bar */}
                     <div style={{
                         display: 'flex',
                         justifyContent: 'space-between',
                         alignItems: 'center',
-                        marginBottom: SPACING.XL,
-                        padding: SPACING.LG,
-                        backgroundColor: COLORS.WHITE,
-                        borderRadius: BORDER_RADIUS.MD,
-                        boxShadow: SHADOWS.DEFAULT
+                        padding: '18px 24px',
+                        borderBottom: '1px solid rgba(0,0,0,0.07)',
+                        flexShrink: 0,
                     }}>
+                        {/* Mobile burger */}
+                        <button
+                            className="mobile-toggle"
+                            onClick={() => setIsMobileNavOpen(true)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'none' }}
+                        >
+                            <div style={{ width: '22px', height: '2px', background: '#374151', margin: '4px 0' }} />
+                            <div style={{ width: '22px', height: '2px', background: '#374151', margin: '4px 0' }} />
+                            <div style={{ width: '22px', height: '2px', background: '#374151', margin: '4px 0' }} />
+                        </button>
+
                         <h1 style={{
                             margin: 0,
-                            fontSize: '18px',
-                            color: COLORS.GRAY[700],
-                            fontWeight: '600'
+                            fontSize: '17px',
+                            fontWeight: '600',
+                            color: '#1e293b',
                         }}>
                             {pageTitle}
                         </h1>
-                        <Button
-                            variant="danger"
-                            onClick={handleLogout}
-                        >
+                        <Button variant="danger" onClick={handleLogout}>
                             Выйти
                         </Button>
                     </div>
-                    <div style={{ display: 'none', position: 'absolute', top: `-${SPACING.SM}`, left: `-${SPACING.SM}`, zIndex: 10 }} className="mobile-toggle">
-                        <button onClick={() => setIsMobileNavOpen(true)} style={{ padding: SPACING.MD, background: 'none', border: 'none', cursor: 'pointer' }}>
-                            <div style={{ width: '24px', height: '2px', background: COLORS.GRAY[900], margin: '4px 0' }} />
-                            <div style={{ width: '24px', height: '2px', background: COLORS.GRAY[900], margin: '4px 0' }} />
-                            <div style={{ width: '24px', height: '2px', background: COLORS.GRAY[900], margin: '4px 0' }} />
-                        </button>
+
+                    {/* Page content */}
+                    <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+                        {children}
                     </div>
-                    {children}
                 </main>
+
+                {/* Mobile overlay */}
                 {isMobileNavOpen && (
                     <>
-                        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000 }} onClick={() => setIsMobileNavOpen(false)} />
-                        <div style={{ position: 'fixed', top: 0, left: 0, height: '100vh', zIndex: 1001, width: '250px', display: 'block' }} >
-                            <SideNav isMobile={isMobileNavOpen} onClose={() => setIsMobileNavOpen(false)} />
+                        <div
+                            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000 }}
+                            onClick={() => setIsMobileNavOpen(false)}
+                        />
+                        <div style={{
+                            ...sidebarCard,
+                            position: 'fixed',
+                            top: '16px',
+                            left: '16px',
+                            bottom: '16px',
+                            width: '230px',
+                            zIndex: 1001,
+                            overflowY: 'auto',
+                        }}>
+                            <SideNav isMobile onClose={() => setIsMobileNavOpen(false)} />
                         </div>
                     </>
                 )}
             </div>
         </PageTitleContext.Provider>
     );
-} 
+}
