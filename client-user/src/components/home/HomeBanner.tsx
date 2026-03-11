@@ -43,7 +43,7 @@ export const HomeBanner: FC<Props> = ({ content }) => {
             <SwiperSlide key={i}>
               <div className='relative w-full h-[200px] md:h-[400px] overflow-hidden bg-gray-200'>
                 {slide.image && (
-                  <picture className='w-full h-full'>
+                  <picture className='absolute inset-0 block'>
                     {slide.imageMobile && (
                       <source media='(max-width: 767px)' srcSet={toImageSrc(slide.imageMobile)} />
                     )}
