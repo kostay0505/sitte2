@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { cn } from '@/utils/cn';
 import { CategoryNav } from '@/components/home/CategoryNav';
 import { TgIcon2, LogoIcon } from './common/SvgIcon';
-import { Bell, Briefcase, DoorOpen, Globe, LayoutGrid, MessageCircle, Search, ShoppingCart, UserRound } from 'lucide-react';
+import { Bell, Briefcase, DoorOpen, Globe, LayoutGrid, MessageCircle, Search, UserRound } from 'lucide-react';
 import { ROUTES } from '@/config/routes';
 import { TG_LINK } from '@/config/constants';
 import { LoginModal } from '@/components/Auth/LoginModal';
@@ -129,12 +129,6 @@ function DesktopHeader() {
               <UserRound className='w-5 h-5' />
             </button>
 
-            <button
-              className='text-gray-700 hover:text-black transition'
-              aria-label='Корзина'
-            >
-              <ShoppingCart className='w-5 h-5' />
-            </button>
           </>
         ) : (
           <>
