@@ -12,14 +12,14 @@ import { Tabs } from '@/components/Tabs';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Touring Expert — профессиональный маркетплейс',
-    template: '%s | Touring Expert',
+    default: 'TEM — концертное оборудование',
+    template: '%s | TEM',
   },
   description:
-    'Touring Expert — платформа для покупки и продажи звукового, светового оборудования и многого другого.',
+    'TEM — платформа для покупки и продажи звукового, светового и концертного оборудования.',
   metadataBase: new URL('https://touringexpertsale.ru'),
   openGraph: {
-    siteName: 'Touring Expert',
+    siteName: 'TEM',
     locale: 'ru_RU',
     type: 'website',
   },

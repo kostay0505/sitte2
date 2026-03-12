@@ -37,7 +37,7 @@ export const Footer: React.FC = memo(() => {
         {/* Left: Logo + social */}
         <div className='flex flex-col gap-4 md:max-w-[240px]'>
           <a href={ROUTES.HOME} className='inline-flex'>
-            <LogoIcon className='h-12 w-auto brightness-0 invert' />
+            <LogoIcon className='h-20 w-auto brightness-0 invert' />
           </a>
 
           {/* Social icons */}
