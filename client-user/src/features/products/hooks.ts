@@ -6,6 +6,7 @@ import {
   getAvailableProducts,
   getMyProducts,
   getProductById,
+  getProductBySlug,
   getProductsBasicInfo,
   setProductFavorite,
   toggleActivateProduct,
@@ -148,6 +149,14 @@ export function useProduct(id?: string) {
     enabled: !!id,
     queryKey: QK.products.byId(id || ''),
     queryFn: () => getProductById(id!),
+  });
+}
+
+export function useProductBySlug(slug?: string) {
+  return useQuery<Product>({
+    enabled: !!slug,
+    queryKey: QK.products.bySlug(slug || ''),
+    queryFn: () => getProductBySlug(slug!),
   });
 }
 

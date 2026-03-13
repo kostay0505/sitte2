@@ -89,7 +89,7 @@ export default function ShopCatalogPage() {
                 <ProductCard
                   key={p.id}
                   product={p}
-                  href={`/catalog/${p.id}`}
+                  href={p.brandSlug && p.slug ? `/catalog/${p.brandSlug}/${p.slug}` : `/catalog/${p.id}`}
                 />
               ))}
             </div>

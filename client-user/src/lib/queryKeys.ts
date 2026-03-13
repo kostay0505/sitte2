@@ -2,6 +2,7 @@ export const QK = {
   products: {
     available: (q: unknown) => ['products', 'available', q] as const,
     byId: (id: string) => ['products', 'byId', id] as const,
+    bySlug: (slug: string) => ['products', 'bySlug', slug] as const,
     basicInfo: () => ['products', 'basicInfo'] as const,
     my: () => ['products', 'my'] as const,
   },

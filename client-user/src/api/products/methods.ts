@@ -58,6 +58,16 @@ export async function getAvailableProducts(
   }
 }
 
+/** GET /products/slug/:slug — детальная информация по slug */
+export async function getProductBySlug(slug: string): Promise<Product> {
+  try {
+    const { data } = await api.get<Product>(`/products/slug/${slug}`);
+    return data;
+  } catch (error) {
+    throw new Error(pickErrorMessage(error, 'Не удалось получить товар'));
+  }
+}
+
 /** GET /products/:id — детальная информация о товаре */
 export async function getProductById(id: string): Promise<Product> {
   try {

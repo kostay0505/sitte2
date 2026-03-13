@@ -1,3 +1,11 @@
+export type UserRole = 'user' | 'shop' | 'admin';
+
+export const USER_ROLE_LABELS: Record<UserRole, string> = {
+    user: 'Пользователь',
+    shop: 'Магазин',
+    admin: 'Админ',
+};
+
 export interface User {
     tgId: string;
     username: string | null;
@@ -10,6 +18,7 @@ export interface User {
     subscribedToNewsletter: boolean;
     isActive: boolean;
     isBanned: boolean;
+    role: UserRole;
     city?: {
         id: string;
         name: string;

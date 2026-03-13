@@ -189,7 +189,7 @@ function ShowcaseRenderer({ block, sellerId }: { block: ShowcaseBlock; sellerId:
               <ProductCard
                 product={loading ? undefined : p}
                 isLoading={loading}
-                href={loading ? '' : `${ROUTES.CATALOG}/${p.id}`}
+                href={loading ? '' : (p.brandSlug && p.slug ? `/catalog/${p.brandSlug}/${p.slug}` : `${ROUTES.CATALOG}/${p.id}`)}
               />
             </SwiperSlide>
           ))}

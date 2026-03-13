@@ -4,7 +4,8 @@ import {
   IsOptional,
   IsEmail,
   IsPhoneNumber,
-  IsUUID
+  IsUUID,
+  IsIn
 } from 'class-validator';
 
 export class UpdateUserDto {
@@ -66,4 +67,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   passwordHash?: string | null;
+
+  @IsOptional()
+  @IsIn(['user', 'shop', 'admin'])
+  role?: string;
 }

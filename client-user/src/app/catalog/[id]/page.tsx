@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { permanentRedirect } from 'next/navigation';
 import { CatalogDetailsClient } from './CatalogDetailsClient';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -50,6 +51,28 @@ export async function generateMetadata({
   }
 }
 
-export default function CatalogDetailsPage() {
+export default async function CatalogDetailsPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+
+  // Если UUID — редиректим на SEO-URL
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+  if (isUUID) {
+    try {
+      const res = await fetch(`${API_URL}/products/${id}`, {
+        next: { revalidate: 3600 },
+      });
+      if (res.ok) {
+        const product = await res.json();
+        if (product.slug && product.brandSlug) {
+          permanentRedirect(`/catalog/${product.brandSlug}/${product.slug}`);
+        }
+      }
+    } catch {}
+  }
+
   return <CatalogDetailsClient />;
 }

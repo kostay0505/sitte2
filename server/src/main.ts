@@ -30,7 +30,8 @@ async function bootstrap() {
           objectSrc: ["'none'"],
         },
       },
-      crossOriginEmbedderPolicy: false, // Needed for images from external CDN
+      crossOriginEmbedderPolicy: false,   // Needed for images from external CDN
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allow images from API on other origins
     }),
   );
 

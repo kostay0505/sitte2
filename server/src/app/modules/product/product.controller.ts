@@ -86,6 +86,19 @@ export class ProductController {
         return this.service.adminDeleteProduct(id);
     }
 
+    @Get('slug/:slug')
+    @OptionalJwtAuth()
+    async findBySlug(
+        @Request() req: RequestWithUser,
+        @Param('slug') slug: string
+    ): Promise<Product> {
+        const product = await this.service.findBySlug(slug, req?.user?.tgId ?? null);
+        if (!product) {
+            throw new NotFoundException('Товар не найден');
+        }
+        return product;
+    }
+
     @Get(':id')
     @OptionalJwtAuth()
     async findOne(

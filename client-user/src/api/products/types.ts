@@ -13,6 +13,8 @@ export type SortDirection = 'asc' | 'desc';
 export type ProductBasic = {
   id: string;
   name: string;
+  slug?: string | null;
+  brandSlug?: string | null;
   priceCash: string;
   currency: CurrencyList;
   preview: string;
@@ -29,6 +31,8 @@ export type ProductBasic = {
 export type Product = {
   id: string;
   name: string;
+  slug?: string | null;
+  brandSlug?: string | null;
   priceCash: string;
   priceNonCash: string;
   currency: string;

@@ -111,7 +111,7 @@ export const HomeProductCarousel: FC<Props> = ({ title, categories, fetchProduct
               <HomeProductCard
                 product={isLoading ? undefined : item}
                 isLoading={isLoading}
-                href={isLoading ? '' : `${ROUTES.CATALOG}/${item.id}`}
+                href={isLoading ? '' : (item.brandSlug && item.slug ? `/catalog/${item.brandSlug}/${item.slug}` : `${ROUTES.CATALOG}/${item.id}`)}
               />
             </SwiperSlide>
           ))}

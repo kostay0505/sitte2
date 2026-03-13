@@ -19,10 +19,26 @@ import { favoriteProducts } from '../favorite-product/schemas/favorite-products'
 import { CategoryRepository } from '../category/category.repository';
 import { HrefService } from '../../services/href/href.service';
 
+function toSlug(str: string): string {
+  const ruMap: Record<string, string> = {
+    'а':'a','б':'b','в':'v','г':'g','д':'d','е':'e','ё':'yo','ж':'zh','з':'z',
+    'и':'i','й':'y','к':'k','л':'l','м':'m','н':'n','о':'o','п':'p','р':'r',
+    'с':'s','т':'t','у':'u','ф':'f','х':'kh','ц':'ts','ч':'ch','ш':'sh',
+    'щ':'shch','ъ':'','ы':'y','ь':'','э':'e','ю':'yu','я':'ya'
+  };
+  return str.toLowerCase()
+    .split('').map(c => ruMap[c] ?? c).join('')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100);
+}
+
 export interface ProductRow {
   id: string;
   customId?: string | null;
   name: string;
+  slug?: string | null;
+  brandSlug?: string | null;
   priceCash: string;
   priceNonCash: string;
   currency: string;
@@ -60,6 +76,8 @@ export interface ProductRow {
 export interface ProductShortRow {
   id: string;
   name: string;
+  slug?: string | null;
+  brandSlug?: string | null;
   priceCash: string;
   currency: string;
   preview: string;
@@ -81,6 +99,20 @@ export class ProductRepository {
     @Inject(forwardRef(() => HrefService))
     private readonly hrefService: HrefService
   ) { }
+
+  private async generateUniqueSlug(name: string): Promise<string> {
+    const base = toSlug(name);
+    let slug = base || 'product';
+    let n = 2;
+    while (true) {
+      const existing = (await this.db.execute(
+        sql`SELECT id FROM ${products} WHERE slug = ${slug} LIMIT 1`
+      )) as SqlQueryResult<{ id: string }>;
+      if (!Array.isArray(existing[0]) || existing[0].length === 0) break;
+      slug = `${base}-${n++}`;
+    }
+    return slug;
+  }
 
   private async getViewCount(productId: string): Promise<number> {
     const [result] = await this.db
@@ -141,6 +173,8 @@ export class ProductRepository {
       id: row.id,
       customId: row.customId ?? null,
       name: row.name,
+      slug: row.slug ?? null,
+      brandSlug: row.brandSlug ?? (row.brand_name ? toSlug(row.brand_name) : null),
       priceCash: row.priceCash,
       priceNonCash: row.priceNonCash,
       currency: row.currency as CurrencyList,
@@ -175,6 +209,8 @@ export class ProductRepository {
     return {
       id: row.id,
       name: row.name,
+      slug: row.slug ?? null,
+      brandSlug: row.brandSlug ?? null,
       priceCash: row.priceCash,
       currency: row.currency as CurrencyList,
       preview: row.preview,
@@ -190,9 +226,18 @@ export class ProductRepository {
   async create(
     dto: CreateProductDto & { userId: string; status: ProductStatus }
   ): Promise<Product> {
+    const slug = await this.generateUniqueSlug(dto.name);
+    const [brandRow] = await this.db
+      .select({ name: brands.name })
+      .from(brands)
+      .where(eq(brands.id, dto.brandId));
+    const brandSlug = brandRow ? toSlug(brandRow.name) : '';
+
     const data = {
       ...dto,
       id: crypto.randomUUID(),
+      slug,
+      brandSlug,
       userId: dto.userId,
       priceCash: dto.priceCash.toString(),
       priceNonCash: dto.priceNonCash.toString(),
@@ -268,9 +313,11 @@ export class ProductRepository {
       : sql``;
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.priceNonCash,
                 product.currency,
@@ -323,9 +370,11 @@ export class ProductRepository {
 
   async findAll(): Promise<Product[]> {
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.priceNonCash,
                 product.currency,
@@ -381,9 +430,11 @@ export class ProductRepository {
       : sql``;
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.currency,
                 product.preview,
@@ -419,9 +470,11 @@ export class ProductRepository {
       : sql``;
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.currency,
                 product.preview,
@@ -431,8 +484,8 @@ export class ProductRepository {
                 ${favoriteProductsQuerySelect}
             FROM ${products} product
             ${favoriteProductsQueryLeftJoin}
-            WHERE product.isActive = true 
-                AND product.isDeleted = false 
+            WHERE product.isActive = true
+                AND product.isDeleted = false
                 AND product.status = ${ProductStatus.APPROVED}
             ORDER BY product.createdAt DESC
             LIMIT 10
@@ -457,9 +510,11 @@ export class ProductRepository {
       : sql``;
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.currency,
                 product.preview,
@@ -469,8 +524,8 @@ export class ProductRepository {
                 ${favoriteProductsQuerySelect}
             FROM ${products} product
             ${favoriteProductsQueryLeftJoin}
-            WHERE product.isActive = true 
-                AND product.isDeleted = false 
+            WHERE product.isActive = true
+                AND product.isDeleted = false
                 AND product.status = ${ProductStatus.APPROVED}
                 AND product.userId = ${mainSellerUserId}
             ORDER BY product.createdAt DESC
@@ -493,9 +548,11 @@ export class ProductRepository {
       : sql``;
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.currency,
                 product.preview,
@@ -594,9 +651,11 @@ export class ProductRepository {
       query.sortDirection === SortDirection.ASC ? 'ASC' : 'DESC';
 
     const result = (await this.db.execute(sql`
-            SELECT 
+            SELECT
                 product.id,
                 product.name,
+                product.slug,
+                product.brandSlug,
                 product.priceCash,
                 product.currency,
                 product.preview,
@@ -630,6 +689,8 @@ export class ProductRepository {
         product.id,
         product.customId,
         product.name,
+        product.slug,
+        product.brandSlug,
         product.priceCash,
         product.priceNonCash,
         product.currency,
@@ -674,6 +735,70 @@ export class ProductRepository {
     }
 
     return Promise.all(result[0].map(row => this.mapToProduct(row)));
+  }
+
+  async findBySlug(slug: string, userId?: string): Promise<Product | null> {
+    const favoriteProductsQuerySelect = userId
+      ? sql`, favoriteProduct.isActive as productFavorite_isActive`
+      : sql``;
+    const favoriteProductsQueryLeftJoin = userId
+      ? sql`LEFT JOIN ${favoriteProducts} favoriteProduct ON product.id = favoriteProduct.productId AND favoriteProduct.userId = ${userId}`
+      : sql``;
+
+    const result = (await this.db.execute(sql`
+            SELECT
+                product.id,
+                product.name,
+                product.slug,
+                product.brandSlug,
+                product.priceCash,
+                product.priceNonCash,
+                product.currency,
+                product.preview,
+                product.files,
+                product.description,
+                product.quantity,
+                product.quantityType,
+                product.status,
+                product.isActive,
+                product.isDeleted,
+                product.createdAt,
+                category.id as category_id,
+                category.name as category_name,
+                brand.id as brand_id,
+                brand.name as brand_name,
+                brand.photo as brand_photo,
+                brand.description as brand_description,
+                user.tgId as user_tgId,
+                user.username as user_username,
+                user.firstName as user_firstName,
+                user.lastName as user_lastName,
+                user.photoUrl as user_photoUrl,
+                user.phone as user_phone,
+                user.email as user_email,
+                city.id as city_id,
+                city.name as city_name,
+                country.id as country_id,
+                country.name as country_name
+                ${favoriteProductsQuerySelect}
+            FROM ${products} product
+            LEFT JOIN ${categories} category ON product.categoryId = category.id
+            LEFT JOIN ${brands} brand ON product.brandId = brand.id
+            LEFT JOIN ${users} user ON product.userId = user.tgId
+            LEFT JOIN ${cities} city ON user.cityId = city.id
+            LEFT JOIN ${countries} country ON city.countryId = country.id
+            ${favoriteProductsQueryLeftJoin}
+            WHERE product.slug = ${slug}
+        `)) as SqlQueryResult<ProductRow>;
+
+    if (!Array.isArray(result[0]) || !result[0][0]) return null;
+    const data = await this.mapToProduct(result[0][0]);
+
+    if (userId && data.user?.tgId === userId) {
+      data.viewCount = await this.getViewCount(data.id);
+    }
+
+    return data;
   }
 
   async adminDelete(id: string): Promise<void> {

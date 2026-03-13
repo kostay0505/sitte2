@@ -11,6 +11,8 @@ export const products = mysqlTable('Products', {
     customId: varchar('customId', { length: 50 }),
     userId: varchar('userId', { length: 255 }).notNull(),
     name: varchar('name', { length: 255 }).notNull(),
+    slug: varchar('slug', { length: 255 }),
+    brandSlug: varchar('brandSlug', { length: 100 }),
     priceCash: decimal('priceCash', { precision: 10, scale: 2 }).notNull(),
     priceNonCash: decimal('priceNonCash', { precision: 10, scale: 2 }).notNull(),
     currency: varchar('currency', { length: 255 }).notNull().$type<CurrencyList>(),
@@ -47,6 +49,8 @@ export type Product = {
     id: string;
     customId?: string | null;
     name: string;
+    slug?: string | null;
+    brandSlug?: string | null;
     priceCash: string;
     priceNonCash: string;
     currency: CurrencyList;
@@ -70,6 +74,8 @@ export type Product = {
 export type ProductShort = {
     id: string;
     name: string;
+    slug?: string | null;
+    brandSlug?: string | null;
     priceCash: string;
     currency: CurrencyList;
     preview: string;

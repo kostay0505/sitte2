@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Page } from '@/components/Page';
-import { Layout } from '@/components/Layout';
 import { ProtectedRoute } from '@/components/ProtectedRoute/ProtectedRoute';
 import {
   UserIcon,
@@ -139,31 +138,107 @@ export default function ProfilePage() {
 
         {/* Mobile */}
         <div className='md:hidden'>
-          <Layout className='p-2 pt-4 space-y-5 text-black'>
-            <div className='flex items-center justify-between gap-4 bg-[#F5F5FA] p-4 rounded-xl'>
-              <div className='flex items-center gap-4'>
-                <div className='w-16 h-16 border rounded-lg flex items-center justify-center overflow-hidden'>
-                  {isLoading ? <Skeleton width={'100%'} height={'100%'} /> : avatarSrc ? (
-                    <ImageWithSkeleton src={avatarSrc} containerClassName='w-16 h-16' className='!rounded-none object-cover' alt='avatar' isLoading={isLoading} />
-                  ) : <UserIcon className='w-10 h-10 text-gray-500' />}
-                </div>
-                <div className='space-y-1'>
-                  {isLoading ? (<><Skeleton height={28} /><Skeleton height={24} /></>) : (
-                    <><div className='font-medium text-lg'>{displayName}</div><div className='text-gray-500'>{displayHandle}</div></>
-                  )}
-                </div>
-              </div>
-              {!isTMA() && <LogoutButton />}
-            </div>
-            <MobileMenu user={me} />
-            <div className='flex items-center justify-between border-t pt-4 mt-4'>
-              <span className='text-sm font-medium'>Получать рассылку</span>
-              <Switch checked={subscribed} onCheckedChange={onToggleSubscribed} disabled={isLoading || edit.isPending} />
-            </div>
-          </Layout>
+          <MobileProfileLayout
+            me={me}
+            isLoading={isLoading}
+            displayName={displayName}
+            displayHandle={displayHandle}
+            avatarSrc={avatarSrc}
+            subscribed={subscribed}
+            onToggleSubscribed={onToggleSubscribed}
+            editPending={edit.isPending}
+          />
         </div>
       </Page>
     </ProtectedRoute>
+  );
+}
+
+// ─────────────────────────────────────────────
+// Mobile layout
+// ─────────────────────────────────────────────
+
+function MobileProfileLayout({
+  me, isLoading, displayName, displayHandle, avatarSrc, subscribed, onToggleSubscribed, editPending,
+}: {
+  me: UserDataResponse | undefined;
+  isLoading: boolean;
+  displayName: string;
+  displayHandle: string;
+  avatarSrc: string | null;
+  subscribed: boolean;
+  onToggleSubscribed: (v: boolean) => void;
+  editPending: boolean;
+}) {
+  const [activePanel, setActivePanel] = useState<Panel>('vitrine');
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const isBusinessUser = me?.role === 'shop' || me?.role === 'admin';
+
+  const tabs = [
+    { id: 'vitrine' as Panel,   icon: <LayoutDashboard className='w-3.5 h-3.5' />, label: 'Витрина' },
+    { id: 'info' as Panel,      icon: <FileText className='w-3.5 h-3.5' />,        label: 'Инфо' },
+    { id: 'favorites' as Panel, icon: <Heart className='w-3.5 h-3.5' />,           label: 'Избранное' },
+    { id: 'create' as Panel,    icon: <PlusSquare className='w-3.5 h-3.5' />,      label: 'Создать' },
+    { id: 'messages' as Panel,  icon: <MessageSquare className='w-3.5 h-3.5' />,   label: 'Сообщения' },
+    ...(isBusinessUser ? [{ id: 'business' as Panel, icon: <Store className='w-3.5 h-3.5' />, label: 'Бизнес' }] : []),
+  ];
+
+  return (
+    <div className='text-black pt-[84px]'>
+      {/* User card */}
+      <div className='flex items-center gap-3 px-4 py-3 border-b border-gray-100'>
+        <div className='w-12 h-12 border rounded-lg flex items-center justify-center overflow-hidden flex-shrink-0'>
+          {isLoading ? <Skeleton width='100%' height='100%' /> : avatarSrc ? (
+            <ImageWithSkeleton src={avatarSrc} containerClassName='w-12 h-12' className='!rounded-none object-cover' alt='avatar' isLoading={isLoading} />
+          ) : <UserIcon className='w-7 h-7 text-gray-500' />}
+        </div>
+        <div className='flex-1 min-w-0'>
+          {isLoading ? (<div className='space-y-1'><Skeleton height={18} /><Skeleton height={14} /></div>) : (
+            <><div className='font-medium text-base truncate'>{displayName}</div><div className='text-gray-500 text-sm'>{displayHandle}</div></>
+          )}
+        </div>
+        {!isTMA() && <LogoutButton />}
+      </div>
+
+      {/* Horizontal tab bar */}
+      <div className='flex gap-2 overflow-x-auto scrollbar-hide px-4 py-3 border-b border-gray-100'>
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActivePanel(tab.id)}
+            className={cn(
+              'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs whitespace-nowrap transition flex-shrink-0',
+              activePanel === tab.id
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-600 border border-gray-200',
+            )}
+          >
+            {tab.icon}
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Panel content */}
+      <div className='p-4'>
+        {activePanel === 'vitrine' && (
+          <VitrinePanel
+            subscribed={subscribed}
+            onToggleSubscribed={onToggleSubscribed}
+            editPending={editPending}
+            onEditProduct={(id) => { setEditProductId(id); setActivePanel('edit'); }}
+          />
+        )}
+        {activePanel === 'info' && <PersonalInfoPanel />}
+        {activePanel === 'favorites' && <FavoritesPanel />}
+        {activePanel === 'create' && <CreateAdPanel onBack={() => setActivePanel('vitrine')} />}
+        {activePanel === 'edit' && editProductId && (
+          <EditAdPanel productId={editProductId} onBack={() => setActivePanel('vitrine')} />
+        )}
+        {activePanel === 'messages' && <MobileMessagesPanel />}
+        {activePanel === 'business' && <BusinessPagePanel />}
+      </div>
+    </div>
   );
 }
 
@@ -202,10 +277,10 @@ function DesktopLayout({
   };
 
   const navMain = [
-    { id: 'vitrine' as Panel, icon: <LayoutDashboard className='w-4 h-4' />, label: 'Витрина' },
-    { id: 'messages' as Panel, icon: <MessageSquare className='w-4 h-4' />, label: 'Сообщения' },
-    { id: 'info' as Panel, icon: <FileText className='w-4 h-4' />, label: 'Личная инфо' },
-    { id: 'favorites' as Panel, icon: <Heart className='w-4 h-4' />, label: 'Избранное' },
+    { id: 'vitrine' as Panel, icon: <LayoutDashboard className='w-5 h-5' />, label: 'Витрина' },
+    { id: 'messages' as Panel, icon: <MessageSquare className='w-6 h-6' />, label: 'Сообщения' },
+    { id: 'info' as Panel, icon: <FileText className='w-5 h-5' />, label: 'Личная инфо' },
+    { id: 'favorites' as Panel, icon: <Heart className='w-6 h-6' />, label: 'Избранное' },
   ];
 
   const jobPanels: Panel[] = ['vacancy-my', 'vacancy-create', 'resume-my', 'resume-create'];
@@ -215,7 +290,7 @@ function DesktopLayout({
     <div className='flex w-full'>
       {/* Sidebar */}
       <aside className='w-44 flex-shrink-0 p-3 pt-4'>
-        <div className='bg-white rounded-2xl shadow-sm p-3 space-y-0.5'>
+        <div className='bg-white rounded-2xl shadow-sm p-3 space-y-0.5 overflow-hidden'>
           {/* Main nav */}
           {navMain.map(item => (
             <button
@@ -243,7 +318,7 @@ function DesktopLayout({
                 : 'text-gray-700 hover:bg-gray-100',
             )}
           >
-            <PlusSquare className='w-4 h-4' />
+            <PlusSquare className='w-5 h-5' />
             Создать
           </button>
 
@@ -258,49 +333,53 @@ function DesktopLayout({
                   : 'text-gray-700 hover:bg-gray-100',
               )}
             >
-              <Store className='w-4 h-4' />
+              <Store className='w-6 h-6' />
               Бизнес-страница
             </button>
           )}
 
-          {/* Работа accordion */}
-          <button
-            onClick={() => setJobOpen(p => !p)}
-            className={cn(
-              'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition',
-              isJobPanel ? 'bg-gray-900 text-white font-semibold' : 'text-gray-700 hover:bg-gray-100',
-            )}
-          >
-            <span className='flex items-center gap-2.5'><Briefcase className='w-4 h-4' />Работа</span>
-            <ChevronDown className={cn('w-3 h-3 flex-shrink-0 transition-transform', (jobOpen || isJobPanel) && 'rotate-180', isJobPanel ? 'text-white/70' : 'text-gray-400')} />
-          </button>
-          <AnimatePresence>
-            {(jobOpen || isJobPanel) && (
-              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className='overflow-hidden'>
-                <div className='pl-2 space-y-0.5'>
-                  {([
-                    { label: 'Мои вакансии', panel: 'vacancy-my' as Panel },
-                    { label: 'Создать вакансию', panel: 'vacancy-create' as Panel },
-                    { label: 'Мои резюме', panel: 'resume-my' as Panel },
-                    { label: 'Создать резюме', panel: 'resume-create' as Panel },
-                  ]).map(sub => (
-                    <button
-                      key={sub.panel}
-                      onClick={() => setActivePanel(sub.panel)}
-                      className={cn(
-                        'w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition text-left',
-                        activePanel === sub.panel
-                          ? 'bg-gray-200 text-gray-900 font-medium'
-                          : 'text-gray-600 hover:bg-gray-100',
-                      )}
-                    >
-                      <Pencil className='w-3 h-3' />{sub.label}
-                    </button>
-                  ))}
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          {/* Работа — временно скрыто (функция в разработке) */}
+          {false && (
+            <>
+              <button
+                onClick={() => setJobOpen(p => !p)}
+                className={cn(
+                  'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm transition',
+                  isJobPanel ? 'bg-gray-900 text-white font-semibold' : 'text-gray-700 hover:bg-gray-100',
+                )}
+              >
+                <span className='flex items-center gap-2.5'><Briefcase className='w-5 h-5' />Работа</span>
+                <ChevronDown className={cn('w-3 h-3 flex-shrink-0 transition-transform', (jobOpen || isJobPanel) && 'rotate-180', isJobPanel ? 'text-white/70' : 'text-gray-400')} />
+              </button>
+              <AnimatePresence>
+                {(jobOpen || isJobPanel) && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className='overflow-hidden'>
+                    <div className='pl-2 space-y-0.5'>
+                      {([
+                        { label: 'Мои вакансии', panel: 'vacancy-my' as Panel },
+                        { label: 'Создать вакансию', panel: 'vacancy-create' as Panel },
+                        { label: 'Мои резюме', panel: 'resume-my' as Panel },
+                        { label: 'Создать резюме', panel: 'resume-create' as Panel },
+                      ]).map(sub => (
+                        <button
+                          key={sub.panel}
+                          onClick={() => setActivePanel(sub.panel)}
+                          className={cn(
+                            'w-full flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs transition text-left',
+                            activePanel === sub.panel
+                              ? 'bg-gray-200 text-gray-900 font-medium'
+                              : 'text-gray-600 hover:bg-gray-100',
+                          )}
+                        >
+                          <Pencil className='w-3 h-3' />{sub.label}
+                        </button>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </>
+          )}
 
           <div className='h-px bg-gray-100 my-1' />
 
@@ -309,7 +388,7 @@ function DesktopLayout({
             onClick={() => setSettingsOpen(p => !p)}
             className='w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
           >
-            <span className='flex items-center gap-2.5'><Settings className='w-4 h-4' />Настройки</span>
+            <span className='flex items-center gap-2.5'><Settings className='w-5 h-5' />Настройки</span>
             <ChevronDown className={cn('w-3 h-3 text-gray-400 transition-transform flex-shrink-0', settingsOpen && 'rotate-180')} />
           </button>
           <AnimatePresence>
@@ -340,7 +419,7 @@ function DesktopLayout({
               onClick={handleLogout}
               className='w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-700 hover:bg-gray-100 transition'
             >
-              <LogOut className='w-4 h-4' />Выйти
+              <LogOut className='w-5 h-5' />Выйти
             </button>
           )}
         </div>
@@ -456,7 +535,7 @@ function VitrinePanel({ subscribed, onToggleSubscribed, editPending, onEditProdu
 
       {/* Grid */}
       {status === 'pending' && (
-        <div className='grid grid-cols-4 gap-4'>
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'>
           {Array.from({ length: 8 }).map((_, i) => <ProductCard key={i} isLoading />)}
         </div>
       )}
@@ -467,7 +546,7 @@ function VitrinePanel({ subscribed, onToggleSubscribed, editPending, onEditProdu
         </div>
       )}
       {status !== 'pending' && filtered.length > 0 && (
-        <div className='grid grid-cols-4 gap-4'>
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'>
           {filtered.map(product => (
             <ProductCard
               key={product.id}
@@ -584,6 +663,69 @@ function InlineChatView({ chatId, currentUserId, chat }: {
 }
 
 // ─────────────────────────────────────────────
+// Panel: Сообщения (mobile stacked view)
+// ─────────────────────────────────────────────
+
+function MobileMessagesPanel() {
+  const { chats, isLoading } = useChatList();
+  const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState('');
+
+  useEffect(() => {
+    const tokens = getTokens();
+    if (tokens?.accessToken) {
+      const tgId = extractTgIdFromToken(tokens.accessToken);
+      if (tgId) setCurrentUserId(tgId);
+    }
+  }, []);
+
+  const selectedChat = chats.find(c => c.id === selectedChatId) ?? null;
+
+  if (selectedChatId && selectedChat) {
+    return (
+      <div>
+        <button
+          onClick={() => setSelectedChatId(null)}
+          className='flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 mb-3 transition'
+        >
+          <ArrowLeft className='w-4 h-4' /> Назад к чатам
+        </button>
+        <div style={{ height: 'calc(100vh - 290px)', minHeight: 300 }}>
+          <div className='bg-white rounded-2xl shadow-sm h-full flex flex-col overflow-hidden'>
+            <InlineChatView chatId={selectedChatId} currentUserId={currentUserId} chat={selectedChat} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <h2 className='text-base font-semibold mb-3'>Сообщения</h2>
+      {isLoading ? (
+        <div className='flex justify-center py-8'>
+          <div className='w-6 h-6 border-2 border-green-500 border-t-transparent rounded-full animate-spin' />
+        </div>
+      ) : chats.length === 0 ? (
+        <div className='flex flex-col items-center justify-center py-16 text-gray-400'>
+          <MessageSquare className='w-10 h-10 mb-3 opacity-20' />
+          <div className='text-sm'>Чатов пока нет</div>
+        </div>
+      ) : (
+        <div className='bg-white rounded-2xl shadow-sm overflow-hidden'>
+          <ChatList
+            chats={chats}
+            currentUserId={currentUserId}
+            onSelect={setSelectedChatId}
+            selectedChatId={selectedChatId}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────
 // Panel: Избранное
 // ─────────────────────────────────────────────
 
@@ -594,7 +736,7 @@ function FavoritesPanel() {
     <>
       <h2 className='text-lg font-semibold mb-4'>Избранное</h2>
       {status === 'pending' && (
-        <div className='grid grid-cols-4 gap-4'>
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'>
           {Array.from({ length: 8 }).map((_, i) => <ProductCard key={i} isLoading />)}
         </div>
       )}
@@ -605,9 +747,9 @@ function FavoritesPanel() {
         </div>
       )}
       {status !== 'pending' && items.length > 0 && (
-        <div className='grid grid-cols-4 gap-4'>
+        <div className='grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4'>
           {items.map(product => (
-            <ProductCard key={product.id} product={product} href={`${ROUTES.CATALOG}/${product.id}`} />
+            <ProductCard key={product.id} product={product} href={product.brandSlug && product.slug ? `/catalog/${product.brandSlug}/${product.slug}` : `${ROUTES.CATALOG}/${product.id}`} />
           ))}
         </div>
       )}

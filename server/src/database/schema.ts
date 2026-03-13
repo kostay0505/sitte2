@@ -15,6 +15,14 @@ import { viewedProducts } from '../app/modules/viewed-product/schemas/viewed-pro
 import { newsletterSubscriptions } from '../app/modules/newsletter-subscription/schemas/newsletter-subscriptions';
 import { chats } from '../app/modules/chat/schemas/chats';
 import { messages } from '../app/modules/chat/schemas/messages';
+import { businessPages } from '../app/modules/business-page/schemas/business-pages';
+import { crmDeals } from '../app/modules/crm/schemas/crm-deals';
+import { crmActivities } from '../app/modules/crm/schemas/crm-activities';
+import { crmTags } from '../app/modules/crm/schemas/crm-tags';
+import { driveFolders } from '../app/modules/drive/schemas/drive-folders';
+import { driveFiles } from '../app/modules/drive/schemas/drive-files';
+import { articles } from '../app/modules/articles/schemas/articles';
+import { articleCategories } from '../app/modules/articles/schemas/article-categories';
 
 export const databaseSchema = {
     accounts,
@@ -33,6 +41,14 @@ export const databaseSchema = {
     newsletterSubscriptions,
     chats,
     messages,
+    businessPages,
+    crmDeals,
+    crmActivities,
+    crmTags,
+    driveFolders,
+    driveFiles,
+    articles,
+    articleCategories,
 } as const;
 
 export type Database = MySql2Database<typeof databaseSchema>;

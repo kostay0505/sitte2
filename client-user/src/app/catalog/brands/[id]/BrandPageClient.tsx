@@ -186,7 +186,7 @@ export function BrandPageClient() {
                 <ProductCard
                   key={p.id}
                   product={p}
-                  href={`${ROUTES.CATALOG}/${p.id}`}
+                  href={p.brandSlug && p.slug ? `/catalog/${p.brandSlug}/${p.slug}` : `${ROUTES.CATALOG}/${p.id}`}
                 />
               ))}
         </div>

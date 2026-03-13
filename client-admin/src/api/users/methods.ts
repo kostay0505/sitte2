@@ -1,5 +1,5 @@
 import { api } from '@/api/api';
-import { User } from './models';
+import { User, UserRole } from './models';
 
 export async function getAllUsers(): Promise<User[]> {
     try {
@@ -78,5 +78,16 @@ export async function unbanUser(tgId: string): Promise<void> {
             throw new Error(error.response.data.message);
         }
         throw new Error('Не удалось разблокировать пользователя');
+    }
+}
+
+export async function changeUserRole(tgId: string, role: UserRole): Promise<void> {
+    try {
+        await api.patch(`/users/${tgId}/role`, { role });
+    } catch (error: any) {
+        if (error?.response?.data?.message) {
+            throw new Error(error.response.data.message);
+        }
+        throw new Error('Не удалось изменить роль пользователя');
     }
 }

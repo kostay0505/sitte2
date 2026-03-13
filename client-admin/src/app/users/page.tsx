@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllUsers, updateUser, activateUser, deactivateUser, banUser, unbanUser } from '@/api/users/methods';
+import { getAllUsers, updateUser, activateUser, deactivateUser, banUser, unbanUser, changeUserRole } from '@/api/users/methods';
 import { getAllCities } from '@/api/cities/methods';
-import { User } from '@/api/users/models';
+import { User, UserRole, USER_ROLE_LABELS } from '@/api/users/models';
 import { City } from '@/api/cities/models';
 import { Button } from '@/components/ui/Button/Button';
 import { Input } from '@/components/ui/FormField/FormField';
@@ -227,6 +227,22 @@ export default function UsersPage() {
         }
     };
 
+    const handleChangeRole = async (user: User, role: UserRole) => {
+        try {
+            await changeUserRole(user.tgId, role);
+            showNotification({
+                message: `Роль изменена на «${USER_ROLE_LABELS[role]}»`,
+                type: 'success'
+            });
+            await loadData();
+        } catch (err: any) {
+            showNotification({
+                message: err.message || 'Произошла ошибка',
+                type: 'error'
+            });
+        }
+    };
+
     const handleToggleBan = async (user: User) => {
         try {
             if (user.isBanned) {
@@ -308,6 +324,29 @@ export default function UsersPage() {
             title: 'Город',
             width: '200px',
             render: (value) => value ? value.name + (value.country ? ` (${value.country.name})` : '') : '-'
+        },
+        {
+            key: 'role',
+            title: 'Роль',
+            width: '160px',
+            render: (value, item) => (
+                <select
+                    value={item.role ?? 'user'}
+                    onChange={(e) => handleChangeRole(item, e.target.value as UserRole)}
+                    style={{
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        border: '1px solid #d1d5db',
+                        fontSize: '13px',
+                        cursor: 'pointer',
+                        background: 'white',
+                    }}
+                >
+                    {(Object.entries(USER_ROLE_LABELS) as [UserRole, string][]).map(([val, label]) => (
+                        <option key={val} value={val}>{label}</option>
+                    ))}
+                </select>
+            )
         },
         {
             key: 'isActive',

@@ -130,6 +130,10 @@ export class ProductService {
     return this.repository.findById(id, userId);
   }
 
+  async findBySlug(slug: string, userId?: string): Promise<Product | null> {
+    return this.repository.findBySlug(slug, userId);
+  }
+
   async getAdminListings(userId: string): Promise<Product[]> {
     return this.repository.findAdminListings(userId);
   }

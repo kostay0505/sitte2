@@ -34,10 +34,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      const products: { id: string }[] = await res.json();
+      const products: { id: string; slug?: string | null; brandSlug?: string | null }[] = await res.json();
       products.forEach(p => {
+        const url = p.brandSlug && p.slug
+          ? `${SITE_URL}/catalog/${p.brandSlug}/${p.slug}`
+          : `${SITE_URL}/catalog/${p.id}`;
         results.push({
-          url: `${SITE_URL}/catalog/${p.id}`,
+          url,
           lastModified: new Date(),
           changeFrequency: 'weekly',
           priority: 0.7,

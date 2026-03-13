@@ -54,7 +54,7 @@ export default function FavoritesPage() {
                   <ProductCard
                     key={product.id}
                     product={product}
-                    href={`${ROUTES.CATALOG}/${product.id}`}
+                    href={product.brandSlug && product.slug ? `/catalog/${product.brandSlug}/${product.slug}` : `${ROUTES.CATALOG}/${product.id}`}
                   />
                 ))}
           </div>

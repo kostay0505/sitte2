@@ -3,12 +3,14 @@ import {
   Get,
   Put,
   Post,
+  Patch,
   Body,
   Request,
   HttpCode,
   HttpStatus,
   Param,
-  UseGuards
+  UseGuards,
+  BadRequestException
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -117,5 +119,19 @@ export class UserController {
   @HttpCode(HttpStatus.OK)
   async unbanUser(@Param('tgId') tgId: string): Promise<void> {
     await this.service.unbanUser(tgId);
+  }
+
+  @Patch(':tgId/role')
+  @AdminJwtAuth()
+  @HttpCode(HttpStatus.OK)
+  async updateRole(
+    @Param('tgId') tgId: string,
+    @Body('role') role: string
+  ): Promise<void> {
+    const allowed = ['user', 'shop', 'admin'];
+    if (!allowed.includes(role)) {
+      throw new BadRequestException(`Недопустимая роль: ${role}`);
+    }
+    await this.service.updateRole(tgId, role);
   }
 }

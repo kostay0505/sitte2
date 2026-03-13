@@ -210,6 +210,10 @@ export class UserService {
     }
   }
 
+  async updateRole(tgId: string, role: string): Promise<void> {
+    await this.userRepository.update(tgId, { role } as UpdateUserDto);
+  }
+
   async unbanUser(tgId: string): Promise<void> {
     await this.userRepository.update(tgId, {
       isBanned: false
