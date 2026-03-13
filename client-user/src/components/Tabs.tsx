@@ -71,7 +71,7 @@ function DesktopHeader() {
         className='shrink-0 flex items-center'
         aria-label='Home'
       >
-        <LogoIcon className='h-24 w-auto' />
+        <LogoIcon className='h-16 w-auto' />
       </button>
 
       {/* 50px gap between logo and search */}
