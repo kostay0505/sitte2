@@ -12,6 +12,7 @@ import './_assets/globals.css';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { Tabs } from '@/components/Tabs';
 import { ErrorLogger } from '@/components/ErrorLogger';
+import { PwaRegister } from '@/components/PwaRegister';
 
 export const metadata: Metadata = {
   title: {
@@ -126,6 +127,7 @@ export default async function RootLayout({ children }: PropsWithChildren) {
           </LanguageProvider>
         </Root>
         <ErrorLogger />
+        <PwaRegister />
         <div id='modal-root'></div>
       </body>
     </html>
