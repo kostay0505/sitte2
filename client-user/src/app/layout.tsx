@@ -76,7 +76,8 @@ const siteJsonLd = {
     {
       '@type': 'Organization',
       '@id': `${SITE_URL}/#organization`,
-      name: 'Touring Expert Marketplace',
+      name: 'TEM',
+      alternateName: 'Touring Expert Marketplace',
       url: SITE_URL,
       logo: {
         '@type': 'ImageObject',

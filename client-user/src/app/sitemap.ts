@@ -7,19 +7,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
-      lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 1.0,
     },
     {
       url: `${SITE_URL}/catalog`,
-      lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.9,
     },
     {
       url: `${SITE_URL}/job`,
-      lastModified: new Date(),
       changeFrequency: 'daily',
       priority: 0.8,
     },
@@ -29,19 +26,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   // All products
   try {
-    const res = await fetch(`${API_URL}/products/available?limit=10000`, {
+    const res = await fetch(`${API_URL}/products/available?limit=2000`, {
       next: { revalidate: 3600 },
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
       const products: { id: string; slug?: string | null; brandSlug?: string | null }[] = await res.json();
       products.forEach(p => {
-        const url = p.brandSlug && p.slug
-          ? `${SITE_URL}/catalog/${p.brandSlug}/${p.slug}`
-          : `${SITE_URL}/catalog/${p.id}`;
+        if (!p.brandSlug || !p.slug) return; // skip products without SEO slug
         results.push({
-          url,
-          lastModified: new Date(),
+          url: `${SITE_URL}/catalog/${p.brandSlug}/${p.slug}`,
           changeFrequency: 'weekly',
           priority: 0.7,
         });
@@ -62,15 +56,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         if (!c.parentId && c.slug) {
           results.push({
             url: `${SITE_URL}/catalog/category/${c.slug}`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
+              changeFrequency: 'weekly',
             priority: 0.8,
           });
         } else if (c.parentId && c.slug && slugById.has(c.parentId)) {
           results.push({
             url: `${SITE_URL}/catalog/category/${slugById.get(c.parentId)}/${c.slug}`,
-            lastModified: new Date(),
-            changeFrequency: 'weekly',
+              changeFrequency: 'weekly',
             priority: 0.75,
           });
         }
@@ -85,11 +77,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       signal: AbortSignal.timeout(5000),
     });
     if (res.ok) {
-      const brands: { id: string }[] = await res.json();
+      const brands: { id: string; slug?: string | null }[] = await res.json();
       brands.forEach(b => {
+        const segment = b.slug ?? b.id;
         results.push({
-          url: `${SITE_URL}/catalog/brands/${b.id}`,
-          lastModified: new Date(),
+          url: `${SITE_URL}/catalog/brands/${segment}`,
           changeFrequency: 'weekly',
           priority: 0.6,
         });
