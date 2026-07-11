@@ -24,6 +24,7 @@ import { PasswordMergeModal } from '@/components/Auth/PasswordMergeModal';
 import { mergeAccounts } from '@/api/user/methods';
 import { useQueryClient } from '@tanstack/react-query';
 import { QK } from '@/lib/queryKeys';
+import { PushToggle } from '@/components/PushToggle';
 
 const isUUID = (v?: string) =>
   !!v &&
@@ -364,6 +365,8 @@ export default function PersonalInfoForm() {
               {isUploading || editUser.isPending ? 'Сохранение…' : 'Сохранить'}
             </button>
           </form>
+
+          <PushToggle />
 
           {pendingEmail && (
             <EmailConfirmModal

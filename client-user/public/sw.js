@@ -4,7 +4,7 @@
  * увеличить SW_VERSION — старые кэши будут удалены на activate.
  * Kill-switch: заменить файл на self.registration.unregister() + пересборка.
  */
-const SW_VERSION = 'v1';
+const SW_VERSION = 'v2';
 const STATIC_CACHE = `tem-static-${SW_VERSION}`;
 const IMAGE_CACHE = `tem-images-${SW_VERSION}`;
 const API_CACHE = `tem-api-${SW_VERSION}`;
@@ -139,4 +139,43 @@ self.addEventListener('fetch', event => {
   }
 
   // Всё остальное (auth, chat, socket.io, персональные данные) — мимо SW
+});
+
+// ── Web Push ────────────────────────────────────────────────────────────────
+
+self.addEventListener('push', event => {
+  if (!event.data) return;
+  let payload;
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: 'TEM', body: event.data.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(payload.title || 'TEM', {
+      body: payload.body || '',
+      icon: '/icons/icon-192.png',
+      badge: '/icons/icon-192.png',
+      // одинаковый tag схлопывает уведомления одного чата/типа в одно
+      tag: payload.tag || 'tem',
+      data: { url: payload.url || '/' },
+    }),
+  );
+});
+
+self.addEventListener('notificationclick', event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(windows => {
+      for (const client of windows) {
+        if (client.url.startsWith(self.location.origin) && 'focus' in client) {
+          client.focus();
+          if ('navigate' in client) client.navigate(url);
+          return;
+        }
+      }
+      return clients.openWindow(url);
+    }),
+  );
 });
