@@ -4,14 +4,21 @@
  * увеличить SW_VERSION — старые кэши будут удалены на activate.
  * Kill-switch: заменить файл на self.registration.unregister() + пересборка.
  */
-const SW_VERSION = 'v2';
+const SW_VERSION = 'v3';
 const STATIC_CACHE = `tem-static-${SW_VERSION}`;
 const IMAGE_CACHE = `tem-images-${SW_VERSION}`;
 const API_CACHE = `tem-api-${SW_VERSION}`;
 const PAGE_CACHE = `tem-pages-${SW_VERSION}`;
-const CACHE_NAMES = [STATIC_CACHE, IMAGE_CACHE, API_CACHE, PAGE_CACHE];
+const FALLBACK_CACHE = `tem-fallback-${SW_VERSION}`;
+const CACHE_NAMES = [STATIC_CACHE, IMAGE_CACHE, API_CACHE, PAGE_CACHE, FALLBACK_CACHE];
 
 const OFFLINE_URL = '/offline';
+const PAGE_CACHE_MAX = 20;
+const PAGE_NETWORK_TIMEOUT_MS = 3000;
+
+// Персональные разделы: их HTML не кэшируем никогда
+const PRIVATE_PATH_RE =
+  /^\/(profile|chats|auth|advertisements\/(my|create|edit)|resume\/(my|create|edit)|vacancy\/(my|create|edit))/;
 
 // Публичные GET-эндпоинты API — единственное, что кэшируется из api.*
 // (auth, chat, notifications, users и прочее персональное SW не трогает)
@@ -19,9 +26,9 @@ const PUBLIC_API_RE =
   /^https:\/\/api\.touringexpertsale\.ru\/api\/(categories|brands|cities|countries|home|site-content|articles|products|product-models|business-page)(\/|\?|$)/;
 
 self.addEventListener('install', event => {
-  // Офлайн-страницу кладём в кэш заранее, иначе показывать будет нечего.
+  // Офлайн-страницу кладём в отдельный кэш (не выселяется тримом страниц).
   // skipWaiting() здесь НЕ вызываем: активация новой версии — по кнопке «Обновить» (SKIP_WAITING).
-  event.waitUntil(caches.open(PAGE_CACHE).then(cache => cache.add(OFFLINE_URL)));
+  event.waitUntil(caches.open(FALLBACK_CACHE).then(cache => cache.add(OFFLINE_URL)));
 });
 
 self.addEventListener('activate', event => {
@@ -41,6 +48,42 @@ async function trimCache(cacheName, maxEntries) {
   const keys = await cache.keys();
   for (let i = 0; i < keys.length - maxEntries; i++) {
     await cache.delete(keys[i]);
+  }
+}
+
+async function offlineFallback() {
+  const offline = await caches.match(OFFLINE_URL, { cacheName: FALLBACK_CACHE });
+  return offline || new Response('Offline', { status: 503, statusText: 'Offline' });
+}
+
+/*
+ * Страницы: network-first с таймаутом.
+ * - сеть ответила за 3с — отдаём свежее и кладём в кэш;
+ * - сеть медленная и есть кэш — мгновенно отдаём последнюю сохранённую версию
+ *   (свежая доедет в кэш фоном, увидится при следующем заходе);
+ * - кэша нет — ждём сеть без лимита; совсем без сети — офлайн-страница.
+ */
+async function pageNetworkFirst(request) {
+  const cache = await caches.open(PAGE_CACHE);
+  const network = fetch(request).then(response => {
+    if (response.ok) {
+      cache.put(request, response.clone()).then(() => trimCache(PAGE_CACHE, PAGE_CACHE_MAX));
+    }
+    return response;
+  });
+  const softNetwork = network.catch(() => undefined);
+  const timer = new Promise(resolve => setTimeout(() => resolve(undefined), PAGE_NETWORK_TIMEOUT_MS));
+
+  const winner = await Promise.race([softNetwork, timer]);
+  if (winner) return winner;
+
+  const cached = await cache.match(request, { ignoreVary: true });
+  if (cached) return cached;
+
+  try {
+    return await network;
+  } catch {
+    return offlineFallback();
   }
 }
 
@@ -109,14 +152,13 @@ self.addEventListener('fetch', event => {
 
   const url = new URL(request.url);
 
-  // Навигации: только сеть; при недоступности — офлайн-страница
+  // Навигации: личные разделы — только сеть; публичные — network-first с кэшем страниц
   if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const offline = await caches.match(OFFLINE_URL, { cacheName: PAGE_CACHE });
-        return offline || new Response('Offline', { status: 503, statusText: 'Offline' });
-      }),
-    );
+    if (url.origin === self.location.origin && !PRIVATE_PATH_RE.test(url.pathname)) {
+      event.respondWith(pageNetworkFirst(request));
+    } else {
+      event.respondWith(fetch(request).catch(() => offlineFallback()));
+    }
     return;
   }
 
