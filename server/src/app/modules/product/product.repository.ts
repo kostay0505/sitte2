@@ -1,5 +1,5 @@
 import { Injectable, Inject, forwardRef } from '@nestjs/common';
-import { eq, and, sql, not } from 'drizzle-orm';
+import { eq, and, sql, not, inArray } from 'drizzle-orm';
 import { Product, ProductShort, products } from './schemas/products';
 import { Database } from '../../../database/schema';
 import { GetProductsDto, OrderBy, SortDirection } from './dto/get-products.dto';
@@ -18,6 +18,7 @@ import { countries } from '../country/schemas/countries';
 import { favoriteProducts } from '../favorite-product/schemas/favorite-products';
 import { CategoryRepository } from '../category/category.repository';
 import { HrefService } from '../../services/href/href.service';
+import { ExchangeRateService } from '../exchange-rate/exchange-rate.service';
 
 function toSlug(str: string): string {
   const ruMap: Record<string, string> = {
@@ -97,8 +98,17 @@ export class ProductRepository {
     private readonly userRepository: UserRepository,
     private readonly categoryRepository: CategoryRepository,
     @Inject(forwardRef(() => HrefService))
-    private readonly hrefService: HrefService
+    private readonly hrefService: HrefService,
+    private readonly exchangeRateService: ExchangeRateService,
   ) { }
+
+  private async toRubStr(amount: string, currency: string): Promise<string | null> {
+    if (!amount || currency === 'RUB') return null;
+    const n = parseFloat(amount);
+    if (isNaN(n) || n === 0) return null;
+    const rub = await this.exchangeRateService.convertToRub(n, currency);
+    return String(rub);
+  }
 
   private async generateUniqueSlug(name: string): Promise<string> {
     const base = toSlug(name);
@@ -119,13 +129,38 @@ export class ProductRepository {
       .select({ count: sql<number>`COUNT(DISTINCT ${viewedProducts.userId})` })
       .from(viewedProducts)
       .where(eq(viewedProducts.productId, productId));
-    
+
     const rawCount = result?.count || 0;
-    
+
     if (rawCount <= 10) return Math.round(rawCount * 2);
     if (rawCount <= 20) return Math.round(rawCount * 1.7);
     if (rawCount <= 50) return Math.round(rawCount * 1.5);
     return Math.round(rawCount * 1.3);
+  }
+
+  private async getBatchViewCounts(productIds: string[]): Promise<Map<string, number>> {
+    if (productIds.length === 0) return new Map();
+
+    const rows = await this.db
+      .select({
+        productId: viewedProducts.productId,
+        count: sql<number>`COUNT(DISTINCT ${viewedProducts.userId})`
+      })
+      .from(viewedProducts)
+      .where(inArray(viewedProducts.productId, productIds))
+      .groupBy(viewedProducts.productId);
+
+    const map = new Map<string, number>();
+    for (const row of rows) {
+      const rawCount = row.count || 0;
+      let inflated: number;
+      if (rawCount <= 10) inflated = Math.round(rawCount * 2);
+      else if (rawCount <= 20) inflated = Math.round(rawCount * 1.7);
+      else if (rawCount <= 50) inflated = Math.round(rawCount * 1.5);
+      else inflated = Math.round(rawCount * 1.3);
+      map.set(row.productId, inflated);
+    }
+    return map;
   }
 
   async mapToProduct(row: ProductRow): Promise<Product> {
@@ -141,6 +176,7 @@ export class ProductRepository {
       ? {
         id: row.brand_id,
         name: row.brand_name,
+        slug: null,
         contact: row.brand_contact,
         photo: row.brand_photo,
         description: row.brand_description
@@ -169,6 +205,11 @@ export class ProductRepository {
       'product'
     );
 
+    const [priceRub, priceNonCashRub] = await Promise.all([
+      this.toRubStr(row.priceCash, row.currency),
+      this.toRubStr(row.priceNonCash, row.currency),
+    ]);
+
     return {
       id: row.id,
       customId: row.customId ?? null,
@@ -176,7 +217,9 @@ export class ProductRepository {
       slug: row.slug ?? null,
       brandSlug: row.brandSlug ?? (row.brand_name ? toSlug(row.brand_name) : null),
       priceCash: row.priceCash,
+      priceRub,
       priceNonCash: row.priceNonCash,
+      priceNonCashRub,
       currency: row.currency as CurrencyList,
       preview: row.preview,
       files:
@@ -206,12 +249,15 @@ export class ProductRepository {
       'product'
     );
 
+    const priceRub = await this.toRubStr(row.priceCash, row.currency);
+
     return {
       id: row.id,
       name: row.name,
       slug: row.slug ?? null,
       brandSlug: row.brandSlug ?? null,
       priceCash: row.priceCash,
+      priceRub,
       currency: row.currency as CurrencyList,
       preview: row.preview,
       description: row.description,
@@ -255,7 +301,7 @@ export class ProductRepository {
     return result;
   }
 
-  async update(id: string, dto: UpdateProductDto): Promise<boolean> {
+  async update(id: string, dto: UpdateProductDto, userId: string): Promise<boolean> {
     await this.db
       .update(products)
       .set({
@@ -265,7 +311,7 @@ export class ProductRepository {
         files: JSON.stringify(dto.files),
         status: ProductStatus.MODERATION
       })
-      .where(eq(products.id, id));
+      .where(and(eq(products.id, id), eq(products.userId, userId)));
     return true;
   }
 
@@ -453,11 +499,12 @@ export class ProductRepository {
     }
 
     const productsData = await Promise.all(result[0].map(row => this.mapToProductShort(row)));
-    
-    await Promise.all(productsData.map(async (product) => {
-      product.viewCount = await this.getViewCount(product.id);
-    }));
-    
+
+    const viewCounts = await this.getBatchViewCounts(productsData.map(p => p.id));
+    productsData.forEach(product => {
+      product.viewCount = viewCounts.get(product.id) ?? 0;
+    });
+
     return productsData;
   }
 
@@ -590,18 +637,18 @@ export class ProductRepository {
       ? sql`LEFT JOIN ${favoriteProducts} favoriteProduct ON product.id = favoriteProduct.productId AND favoriteProduct.userId = ${userId}`
       : sql``;
 
-    const conditions = [
-      'product.isActive = true',
-      'product.isDeleted = false',
-      `product.status = '${ProductStatus.APPROVED}'`
+    const conditions: ReturnType<typeof sql>[] = [
+      sql`product.isActive = true`,
+      sql`product.isDeleted = false`,
+      sql`product.status = ${ProductStatus.APPROVED}`
     ];
 
     if (query.brandId) {
-      conditions.push(`product.brandId = '${query.brandId}'`);
+      conditions.push(sql`product.brandId = ${query.brandId}`);
     }
 
     if (query.sellerId) {
-      conditions.push(`product.userId = '${query.sellerId}'`);
+      conditions.push(sql`product.userId = ${query.sellerId}`);
     }
 
     if (query.categoryId) {
@@ -610,36 +657,40 @@ export class ProductRepository {
       const allCategoryIds = [query.categoryId, ...childCategoryIds];
 
       if (allCategoryIds && allCategoryIds.length > 0) {
-        conditions.push(
-          `product.categoryId IN ('${allCategoryIds.join("','")}')`
-        );
+        const placeholders = sql.join(allCategoryIds.map(id => sql`${id}`), sql`, `);
+        conditions.push(sql`product.categoryId IN (${placeholders})`);
       } else {
-        conditions.push(`product.categoryId = '${query.categoryId}'`);
+        conditions.push(sql`product.categoryId = ${query.categoryId}`);
       }
     }
 
     if (query.priceCashFrom) {
-      conditions.push(
-        `CAST(product.priceCash AS DECIMAL) >= ${query.priceCashFrom}`
-      );
+      conditions.push(sql`CAST(product.priceCash AS DECIMAL) >= ${query.priceCashFrom}`);
     }
 
     if (query.priceCashTo) {
-      conditions.push(
-        `CAST(product.priceCash AS DECIMAL) <= ${query.priceCashTo}`
-      );
+      conditions.push(sql`CAST(product.priceCash AS DECIMAL) <= ${query.priceCashTo}`);
     }
 
+    // searchIds — ранжированные id из SearchService (MiniSearch);
+    // если индекс ещё не готов, searchIds нет — остаётся старый LIKE-fallback
+    const searchIds: string[] | undefined = (query as GetProductsDto & { searchIds?: string[] })
+      .searchIds;
+
     if (query.search) {
-      const escaped = query.search.replace(/'/g, "''").replace(/\\/g, '\\\\').replace(/%/g, '\\%').replace(/_/g, '\\_');
-      conditions.push(`product.name LIKE '%${escaped}%'`);
+      if (searchIds && searchIds.length) {
+        const idPlaceholders = sql.join(searchIds.map(id => sql`${id}`), sql`, `);
+        conditions.push(sql`product.id IN (${idPlaceholders})`);
+      } else {
+        conditions.push(sql`product.name LIKE ${'%' + query.search + '%'}`);
+      }
     }
 
     if (userId && query.isFavorite !== undefined) {
       if (query.isFavorite) {
-        conditions.push(`favoriteProduct.isActive = true`);
+        conditions.push(sql`favoriteProduct.isActive = true`);
       } else {
-        conditions.push(`favoriteProduct.isActive = false`);
+        conditions.push(sql`favoriteProduct.isActive = false`);
       }
     }
 
@@ -649,6 +700,12 @@ export class ProductRepository {
         : 'product.createdAt';
     const orderByDirection =
       query.sortDirection === SortDirection.ASC ? 'ASC' : 'DESC';
+
+    // при поиске без явной сортировки — порядок по релевантности (как вернул индекс)
+    const orderClause =
+      searchIds && searchIds.length && !query.orderBy
+        ? sql`FIELD(product.id, ${sql.join(searchIds.map(id => sql`${id}`), sql`, `)})`
+        : sql`${sql.raw(orderByField)} ${sql.raw(orderByDirection)}`;
 
     const result = (await this.db.execute(sql`
             SELECT
@@ -666,8 +723,8 @@ export class ProductRepository {
                 ${favoriteProductsQuerySelect}
             FROM ${products} product
             ${favoriteProductsQueryLeftJoin}
-            WHERE ${sql.raw(conditions.join(' AND '))}
-            ORDER BY ${sql.raw(orderByField)} ${sql.raw(orderByDirection)}
+            WHERE ${sql.join(conditions, sql` AND `)}
+            ORDER BY ${orderClause}
             LIMIT ${query.limit}
             OFFSET ${query.offset}
         `)) as SqlQueryResult<ProductShortRow>;

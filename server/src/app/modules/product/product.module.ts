@@ -9,6 +9,8 @@ import { ViewedProductModule } from '../viewed-product/viewed-product.module';
 import { UsersModule } from '../user/user.module';
 import { TelegramBotModule } from '../telegram/telegram.bots.module';
 import { HrefModule } from '../../services/href/href.module';
+import { ExchangeRateModule } from '../exchange-rate/exchange-rate.module';
+import { SearchModule } from '../search/search.module';
 
 @Module({
   imports: [
@@ -18,7 +20,9 @@ import { HrefModule } from '../../services/href/href.module';
     CategoryModule,
     FavoriteProductModule,
     ViewedProductModule,
-    forwardRef(() => TelegramBotModule)
+    forwardRef(() => TelegramBotModule),
+    ExchangeRateModule,
+    SearchModule,
   ],
   controllers: [ProductController],
   providers: [ProductService, ProductRepository],

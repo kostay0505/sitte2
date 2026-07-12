@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, BadRequestException, NotFoundException } from '@nestjs/common';
 import { ProductShort } from './schemas/products';
 import { type Product } from './schemas/products';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -13,10 +13,11 @@ import { ModerationService } from '../telegram/moderation/moderation.service';
 import { ProductRepository } from './product.repository';
 import { FavoriteProductRepository } from '../favorite-product/favorite-product.repository';
 import { ViewedProductRepository } from '../viewed-product/viewed-product.repository';
+import { SearchService } from '../search/search.service';
 
 @Injectable()
 export class ProductService {
-  private readonly mainSellerUserId = '6737529504';
+  private readonly mainSellerUserId = process.env.MAIN_SELLER_USER_ID || '6737529504';
 
   constructor(
     private readonly repository: ProductRepository,
@@ -25,7 +26,8 @@ export class ProductService {
     @Inject(forwardRef(() => UserService))
     private readonly userService: UserService,
     @Inject(forwardRef(() => ModerationService))
-    private readonly moderationService: ModerationService
+    private readonly moderationService: ModerationService,
+    private readonly searchService: SearchService
   ) {}
 
   async getBasicInfo(userId?: string): Promise<{
@@ -49,7 +51,7 @@ export class ProductService {
 
   async create(userId: string, dto: CreateProductDto): Promise<Product> {
     if (dto.files?.length > 5) {
-      throw new Error('Вы не можете добавить более 5 файлов в объявление');
+      throw new BadRequestException('Вы не можете добавить более 5 файлов в объявление');
     }
 
     const product = await this.repository.create({
@@ -58,7 +60,8 @@ export class ProductService {
       status: ProductStatus.MODERATION
     });
 
-    await this.moderationService.sendModerationNotification(product, 'create');
+    this.moderationService.sendModerationNotification(product, 'create');
+    this.searchService.refreshSoon();
 
     return product;
   }
@@ -69,16 +72,17 @@ export class ProductService {
     dto: UpdateProductDto
   ): Promise<boolean> {
     if (dto.files?.length > 5) {
-      throw new Error('Вы не можете добавить более 5 файлов в объявление');
+      throw new BadRequestException('Вы не можете добавить более 5 файлов в объявление');
     }
 
     const currentProduct = await this.repository.findById(id);
 
     if (!currentProduct) {
-      throw new Error('Объявление не найдено');
+      throw new NotFoundException('Объявление не найдено');
     }
 
-    await this.repository.update(id, dto);
+    await this.repository.update(id, dto, userId);
+    this.searchService.refreshSoon();
 
     if (currentProduct && currentProduct.status !== ProductStatus.MODERATION) {
       const updatedProduct = {
@@ -89,7 +93,7 @@ export class ProductService {
         priceNonCash: dto.priceNonCash.toString(),
         status: ProductStatus.MODERATION
       };
-      await this.moderationService.sendModerationNotification(
+      this.moderationService.sendModerationNotification(
         updatedProduct,
         'update'
       );
@@ -99,11 +103,15 @@ export class ProductService {
   }
 
   async toggleActivate(userId: string, id: string): Promise<boolean> {
-    return this.repository.toggleActivate(id, userId);
+    const result = await this.repository.toggleActivate(id, userId);
+    this.searchService.refreshSoon();
+    return result;
   }
 
   async delete(userId: string, id: string): Promise<boolean> {
-    return this.repository.delete(id, userId);
+    const result = await this.repository.delete(id, userId);
+    this.searchService.refreshSoon();
+    return result;
   }
 
   async findAllAvailable(
@@ -114,6 +122,15 @@ export class ProductService {
       limit: 25,
       offset: 0
     };
+
+    if (query.search?.trim()) {
+      // умный поиск: ранжированные id из индекса; undefined = индекс не готов → fallback на LIKE
+      const ids = this.searchService.search(query.search);
+      if (ids) {
+        if (!ids.length) return [];
+        (query as GetProductsDto & { searchIds?: string[] }).searchIds = ids;
+      }
+    }
 
     return this.repository.findAllAvailable(query, userId);
   }
