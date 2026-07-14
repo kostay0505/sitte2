@@ -139,10 +139,12 @@ export class ParsedBaseRepository {
     }
 
     async getNextSku(): Promise<string> {
+        // Атомарный счётчик SkuCounter — исключает гонку MAX+1 между PM2-воркерами
         const result = await this.db.execute(sql`
-            SELECT COALESCE(MAX(CAST(SUBSTRING(sku, 5) AS UNSIGNED)), 0) + 1 as nextNum FROM ParsedBase
+            UPDATE SkuCounter SET nextVal = LAST_INSERT_ID(nextVal + 1) WHERE id = 1
         `) as unknown as any[];
-        const nextNum = Number((result[0] as any[])[0]?.nextNum ?? 1);
+        const nextNum = Number((result[0] as any)?.insertId ?? 0);
+        if (!nextNum) throw new Error('SkuCounter is not initialized');
         return `TEM-${String(nextNum).padStart(6, '0')}`;
     }
 
@@ -270,7 +272,7 @@ export class ParsedBaseRepository {
         localImages: string[];
         isSet: boolean;
     }): Promise<string> {
-        const productId = data.sku;
+        const productId = crypto.randomUUID(); // единый формат id: UUID для всех источников (реструктуризация, Фаза 6)
         const productTitle = (data.customTitle || data.title).trim();
         const slug = await this.generateUniqueSlug(productTitle);
         const brandSlug = await this.getBrandSlug(data.brandId);
