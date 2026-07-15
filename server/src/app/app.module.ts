@@ -40,6 +40,7 @@ import { ArticlesModule } from './modules/articles/articles.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { PushModule } from './modules/push/push.module';
+import { SourceItemsModule } from './modules/source-items/source-items.module';
 import { ExchangeRateModule } from './modules/exchange-rate/exchange-rate.module';
 import { ArriusModule } from './modules/arrius/arrius.module';
 import { AlvFranceModule } from './modules/alv-france/alv-france.module';
@@ -138,6 +139,7 @@ import { TendersModule } from './modules/tenders/tenders.module';
     DashboardModule,
     NotificationsModule,
     PushModule,
+    SourceItemsModule,
     ExchangeRateModule,
     ArriusModule,
     AlvFranceModule,
