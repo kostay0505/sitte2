@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Database } from '../../../database/schema';
 import { SourceItemsRepository, SourceTab } from './source-items.repository';
+import { PhotoDownloadService } from './photo-download.service';
 
 const UPLOADS_BASE = '/var/www/touring-test/server/uploads';
 const UPLOADS_PHOTOS = path.join(UPLOADS_BASE, 'фотографии');
@@ -31,6 +32,7 @@ export class SourceItemsService {
 
     constructor(
         private readonly repo: SourceItemsRepository,
+        private readonly photos: PhotoDownloadService,
         @Inject('DATABASE') private db: Database,
     ) {}
 
@@ -81,10 +83,8 @@ export class SourceItemsService {
                 productFiles.push(destName);
             }
         }
-        // Внешние URL в товар НЕ кладём: витрина не умеет чужие домены (next/image).
-        // Пока фото не скачаны — товар без фото (плейсхолдер витрины).
-        // TODO(ТЗ №2-fix Шаг 3): очередь автоскачивания фото с URL источника, владелец — product_id.
-        void images;
+        // Внешние URL в товар НЕ кладём (витрина не умеет чужие домены) —
+        // если локальных файлов нет, ставим задачу автоскачивания (Шаг 3, ниже после INSERT)
 
         // бренд: точное совпадение по имени из источника, иначе фолбэк «Другой»
         const brandName = (extra?.brand ?? '').toString().trim();
@@ -123,6 +123,12 @@ export class SourceItemsService {
                  ${FALLBACK_CATEGORY_ID}, ${brandId}, 1, 'piece', 'moderation', 1, 0, 1,
                  ${si.source}, ${si.external_id}, ${id})
         `);
+
+        // Шаг 3: локальных файлов нет — автоскачивание с URL источника (очередь, крон каждые 2 мин)
+        if (!productFiles.length && images.length) {
+            await this.photos.enqueue(productId, id, images).catch(e =>
+                this.logger.warn(`enqueue фото для ${productId}: ${(e as Error).message}`));
+        }
 
         this.logger.log(`toBase: ${si.source}#${si.external_id} → продукт ${productId} (${customId})`);
         return { productId, customId };

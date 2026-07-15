@@ -206,7 +206,7 @@ export class ProductService {
     return this.repository.create({ ...dto, status: dto.status });
   }
 
-  async adminUpdate(id: string, dto: AdminUpdateProductDto): Promise<boolean> {
+  async adminUpdate(id: string, dto: AdminUpdateProductDto, forceNoPhotos = false): Promise<boolean> {
     if (dto.files && dto.files.length > 5) {
       throw new Error('Вы не можете добавить более 5 файлов в объявление');
     }
@@ -215,6 +215,16 @@ export class ProductService {
 
     if (!currentProduct) {
       throw new Error('Объявление не найдено');
+    }
+
+    // Шаг 3 (строгий вариант, согласован): одобрить нельзя, пока фото скачиваются/в ошибке —
+    // кроме явного подтверждения «опубликовать без фото» (?forceNoPhotos=1).
+    // Если в форме загружены новые файлы — проверка не блокирует.
+    if (dto.status === ProductStatus.APPROVED && !forceNoPhotos && !(dto.files && dto.files.length)) {
+      const photo = await this.repository.getPhotoState(id);
+      if (photo?.blocked) {
+        throw new BadRequestException(`PHOTOS_NOT_READY: ${photo.reason}`);
+      }
     }
 
     await this.repository.adminUpdate(id, dto);

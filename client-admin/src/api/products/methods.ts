@@ -29,6 +29,25 @@ export async function hardDeleteProduct(id: string): Promise<void> {
     await api.delete(`/products/admin/${id}/hard`);
 }
 
+/** Статусы автоскачивания фото (Шаг 3): product_id → {state, downloaded, total} */
+export interface PhotoStatus {
+    product_id: string;
+    state: 'pending' | 'running' | 'done' | 'error' | null;
+    downloaded: number | null;
+    total: number | null;
+    last_error: string | null;
+}
+export async function getPhotoStatuses(): Promise<PhotoStatus[]> {
+    const response = await api.get<PhotoStatus[]>('/source-items/photo-statuses');
+    return response.data;
+}
+
+/** «Скачать фото заново» — перекачка с URL исходной позиции */
+export async function retryPhotos(productId: string): Promise<{ total: number }> {
+    const response = await api.post<{ total: number }>(`/source-items/photo-retry/${productId}`);
+    return response.data;
+}
+
 export async function getProductById(id: string): Promise<Product> {
     try {
         const response = await api.get<Product>(`/products/${id}`);
@@ -53,9 +72,9 @@ export async function createProduct(data: Omit<Product, 'id'>): Promise<Product>
     }
 }
 
-export async function updateProduct(id: string, data: Partial<Omit<Product, 'id'>>): Promise<Product> {
+export async function updateProduct(id: string, data: Partial<Omit<Product, 'id'>>, forceNoPhotos = false): Promise<Product> {
     try {
-        const response = await api.put<Product>(`/products/admin/${id}`, data);
+        const response = await api.put<Product>(`/products/admin/${id}${forceNoPhotos ? '?forceNoPhotos=1' : ''}`, data);
         return response.data;
     } catch (error: any) {
         if (error?.response?.data?.message) {

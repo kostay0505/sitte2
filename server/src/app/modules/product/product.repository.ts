@@ -372,6 +372,33 @@ export class ProductRepository {
     return (rows[0] as any[])[0] ?? null;
   }
 
+  /**
+   * Готовность фото парсинг-черновика (Шаг 3): блокирует одобрение,
+   * пока фото скачиваются/в ошибке/отсутствуют. null — не парсинг-черновик.
+   */
+  async getPhotoState(id: string): Promise<{ blocked: boolean; reason: string } | null> {
+    const rows = (await this.db.execute(sql`
+      SELECT p.source_item_id, CAST(p.images AS CHAR) AS images, q.state, q.downloaded, q.total
+      FROM products p
+      LEFT JOIN photo_download_queue q ON q.id = (
+        SELECT q2.id FROM photo_download_queue q2 WHERE q2.product_id = p.id
+        ORDER BY q2.enqueued_at DESC LIMIT 1
+      )
+      WHERE p.id = ${id}
+    `)) as unknown as any[];
+    const row = (rows[0] as any[])[0];
+    if (!row || !row.source_item_id) return null;
+    let imgs: unknown[] = [];
+    try { imgs = JSON.parse(row.images || '[]'); } catch { /* ignore */ }
+    const hasLocal = imgs.some(f => typeof f === 'string' && f && !/^https?:/i.test(f as string));
+    if (hasLocal) return { blocked: false, reason: '' };
+    if (row.state === 'pending' || row.state === 'running') {
+      return { blocked: true, reason: `фото ещё скачиваются (${row.downloaded ?? 0}/${row.total ?? '?'})` };
+    }
+    if (row.state === 'error') return { blocked: true, reason: 'скачивание фото завершилось ошибкой' };
+    return { blocked: true, reason: 'у товара нет фотографий' };
+  }
+
   /** Внешние ссылки на товар (проверка по факту, не по статусу) — ТЗ №2-fix2 */
   async countExternalRefs(id: string): Promise<string[]> {
     const checks: Array<[string, string, string]> = [

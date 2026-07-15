@@ -1,12 +1,27 @@
 import { Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { AdminJwtAuth } from '../../decorators/admin-jwt-auth.decorator';
 import { SourceItemsService } from './source-items.service';
+import { PhotoDownloadService } from './photo-download.service';
 import { SourceTab } from './source-items.repository';
 
 @Controller('source-items')
 @AdminJwtAuth()
 export class SourceItemsController {
-    constructor(private readonly service: SourceItemsService) {}
+    constructor(
+        private readonly service: SourceItemsService,
+        private readonly photos: PhotoDownloadService,
+    ) {}
+
+    // фото-конвейер (Шаг 3) — объявлены до ':id', чтобы не перехватывались
+    @Get('photo-statuses')
+    photoStatuses() {
+        return this.photos.statuses();
+    }
+
+    @Post('photo-retry/:productId')
+    photoRetry(@Param('productId') productId: string) {
+        return this.photos.retryForProduct(productId);
+    }
 
     @Get()
     list(

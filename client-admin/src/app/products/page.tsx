@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getAllProducts, createProduct, updateProduct, hardDeleteProduct } from '@/api/products/methods';
+import { getAllProducts, createProduct, updateProduct, hardDeleteProduct, getPhotoStatuses, retryPhotos, PhotoStatus } from '@/api/products/methods';
 import { Product, CurrencyList, QuantityType, ProductStatus } from '@/api/products/models';
 import { Button } from '@/components/ui/Button/Button';
 import { COLORS, SPACING } from '@/constants/ui';
@@ -305,6 +305,8 @@ export default function ProductsPage() {
     // Справочники
     const [brands, setBrands] = useState<any[]>([]);
     const [categories, setCategories] = useState<any[]>([]);
+    // Шаг 3: статусы автоскачивания фото по товарам-черновикам парсинга
+    const [photoStatuses, setPhotoStatuses] = useState<Record<string, PhotoStatus>>({});
 
     // Фильтры
     const [searchQuery, setSearchQuery] = useState('');
@@ -347,14 +349,16 @@ export default function ProductsPage() {
     const loadData = async () => {
         try {
             setLoadingState({ isLoading: true, error: null });
-            const [productsResponse, brandsResponse, categoriesResponse] = await Promise.all([
+            const [productsResponse, brandsResponse, categoriesResponse, photoResponse] = await Promise.all([
                 getAllProducts(),
                 getAllBrands(),
-                getAllCategories()
+                getAllCategories(),
+                getPhotoStatuses().catch(() => [] as PhotoStatus[])
             ]);
             setProducts(productsResponse);
             setBrands(brandsResponse);
             setCategories(categoriesResponse);
+            setPhotoStatuses(Object.fromEntries(photoResponse.map(s => [s.product_id, s])));
         } catch (err: any) {
             const errorMessage = err.message || 'Не удалось загрузить данные';
             setLoadingState({ isLoading: false, error: errorMessage });
@@ -519,7 +523,22 @@ export default function ProductsPage() {
             }
 
             if (editingProduct) {
-                await updateProduct(editingProduct.id, processedData);
+                try {
+                    await updateProduct(editingProduct.id, processedData);
+                } catch (err: any) {
+                    // Шаг 3: строгий вариант — одобрение без готовых фото только с явным подтверждением
+                    if (String(err.message || '').includes('PHOTOS_NOT_READY')) {
+                        const reason = String(err.message).replace('PHOTOS_NOT_READY:', '').trim();
+                        if (confirm(`${reason}.\n\nОпубликовать товар БЕЗ фото?`)) {
+                            await updateProduct(editingProduct.id, processedData, true);
+                        } else {
+                            setIsSubmitting(false);
+                            return;
+                        }
+                    } else {
+                        throw err;
+                    }
+                }
                 showNotification({
                     message: 'Товар успешно обновлен',
                     type: 'success'
@@ -872,26 +891,63 @@ export default function ProductsPage() {
             key: 'actions',
             title: 'Действия',
             width: '230px',
-            render: (value, item) => (
-                <div style={{ display: 'flex', gap: 6 }}>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => handleEdit(item)}
-                    >
-                        Редактировать
-                    </Button>
-                    <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => handleHardDelete(item)}
-                    >
-                        Удалить
-                    </Button>
-                </div>
-            )
+            render: (value, item) => {
+                const ph = photoStatuses[item.id];
+                const phBadge = ph && (
+                    ph.state === 'pending' || ph.state === 'running'
+                        ? { text: `📷 ${ph.downloaded ?? 0}/${ph.total ?? '?'}…`, bg: '#fef3c7', fg: '#92400e', title: 'Фото скачиваются' }
+                        : ph.state === 'error'
+                            ? { text: '📷 ошибка', bg: '#fee2e2', fg: '#991b1b', title: ph.last_error || 'Ошибка скачивания фото' }
+                            : null
+                );
+                return (
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                        {phBadge && (
+                            <span title={phBadge.title} style={{ background: phBadge.bg, color: phBadge.fg, borderRadius: 6, padding: '2px 6px', fontSize: 11, whiteSpace: 'nowrap' }}>
+                                {phBadge.text}
+                            </span>
+                        )}
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => handleEdit(item)}
+                        >
+                            Редактировать
+                        </Button>
+                        {ph && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleRetryPhotos(item)}
+                            >
+                                Фото ⟳
+                            </Button>
+                        )}
+                        <Button
+                            variant="danger"
+                            size="sm"
+                            onClick={() => handleHardDelete(item)}
+                        >
+                            Удалить
+                        </Button>
+                    </div>
+                );
+            }
         }
     ];
+
+    // Шаг 3: «Скачать фото заново» — перекачка с URL исходной позиции
+    async function handleRetryPhotos(item: Product) {
+        if (!confirm(`Перекачать фото для «${item.name}» с сайта-источника?\nТекущие фото товара будут заменены.`)) return;
+        try {
+            const { total } = await retryPhotos(item.id);
+            showNotification({ message: `Поставлено в очередь: ${total} фото (скачаются в течение пары минут)`, type: 'success' });
+            await loadData();
+        } catch (e: unknown) {
+            const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message || (e as Error).message;
+            alert(msg);
+        }
+    }
 
     // Хотфикс ТЗ №2-fix2: физическое удаление черновика (гарды на бэке:
     // опубликованный или со ссылками — откажет с причиной)

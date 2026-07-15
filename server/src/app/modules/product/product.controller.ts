@@ -188,9 +188,10 @@ export class ProductController {
     @HttpCode(HttpStatus.OK)
     async adminUpdate(
         @Param('id') id: string,
-        @Body() dto: AdminUpdateProductDto
+        @Body() dto: AdminUpdateProductDto,
+        @Query('forceNoPhotos') forceNoPhotos?: string
     ): Promise<boolean> {
-        return this.service.adminUpdate(id, dto);
+        return this.service.adminUpdate(id, dto, forceNoPhotos === '1');
     }
 
     @Post('favorite')
