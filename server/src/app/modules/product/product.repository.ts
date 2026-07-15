@@ -1,4 +1,4 @@
-import { Injectable, Inject, forwardRef } from '@nestjs/common';
+import { Injectable, Inject, forwardRef, ConflictException } from '@nestjs/common';
 import { eq, and, sql, not, inArray } from 'drizzle-orm';
 import { Product, ProductShort, products } from './schemas/products';
 import { Database } from '../../../database/schema';
@@ -327,7 +327,8 @@ export class ProductRepository {
       ['quantity_type', dto.quantityType],
       ['preview', dto.preview],
       ['images', dto.files !== undefined ? JSON.stringify(dto.files) : undefined],
-      ['custom_id', (dto as { customId?: string }).customId],
+      // пустой артикул из формы НЕ затирает существующий (ТЗ №2-fix2, ч.1 п.5)
+      ['custom_id', (dto as { customId?: string }).customId?.trim() || undefined],
       ['moderation_status', dto.status],
       ['is_active', dto.isActive === undefined ? undefined : dto.isActive ? 1 : 0],
     ];
@@ -346,11 +347,70 @@ export class ProductRepository {
   }
 
   async adminUpdate(id: string, dto: AdminUpdateProductDto): Promise<void> {
+    // уникальность артикула при ручном вводе (ТЗ №2-fix2, ч.1 п.5)
+    const customId = (dto as { customId?: string }).customId?.trim();
+    if (customId) {
+      const taken = (await this.db.execute(sql`
+        SELECT id FROM products WHERE custom_id = ${customId} AND id <> ${id} LIMIT 1
+      `)) as unknown as any[];
+      if ((taken[0] as any[]).length) {
+        throw new ConflictException(`Артикул ${customId} уже занят другим товаром`);
+      }
+    }
     const parts = this.buildProductSetParts(dto);
     await this.db.execute(sql`
       UPDATE products SET ${sql.join(parts, sql`, `)}
       WHERE id = ${id}
     `);
+  }
+
+  /** Жизненный цикл + файлы товара из новой таблицы (для правил физического удаления) */
+  async getLifecycle(id: string): Promise<{ visibility_status: string; preview: string | null; images: string | null } | null> {
+    const rows = (await this.db.execute(sql`
+      SELECT visibility_status, preview, CAST(images AS CHAR) AS images FROM products WHERE id = ${id}
+    `)) as unknown as any[];
+    return (rows[0] as any[])[0] ?? null;
+  }
+
+  /** Внешние ссылки на товар (проверка по факту, не по статусу) — ТЗ №2-fix2 */
+  async countExternalRefs(id: string): Promise<string[]> {
+    const checks: Array<[string, string, string]> = [
+      ['Chats', 'productId', 'чаты'],
+      ['FavoriteProducts', 'productId', 'избранное'],
+      ['ViewedProducts', 'productId', 'просмотры'],
+      ['CrmDeals', 'productId', 'CRM-сделки'],
+      ['TelegramPosts', 'product_id', 'Telegram-посты'],
+    ];
+    const refs: string[] = [];
+    for (const [table, col, label] of checks) {
+      const rows = (await this.db.execute(sql`
+        SELECT COUNT(*) AS c FROM ${sql.raw(table)} WHERE ${sql.raw(col)} = ${id}
+      `)) as unknown as any[];
+      const c = Number((rows[0] as any[])[0]?.c ?? 0);
+      if (c > 0) refs.push(`${label}: ${c}`);
+    }
+    return refs;
+  }
+
+  /**
+   * Физическое удаление черновика/скрытого товара (гарды — в сервисе).
+   * Файлы → file_cleanup_queue (воркер проверяет разделяемость с источником);
+   * review_queue уходит каскадом; source_items.source_item_id-связь освобождается
+   * вместе со строкой — позицию можно отобрать заново.
+   * TODO(ТЗ №2-fix Шаг 3): при появлении очереди скачивания фото — отменять
+   * незавершённые задачи этого товара перед удалением.
+   */
+  async hardDeleteProduct(id: string, lifecycle: { preview: string | null; images: string | null }): Promise<void> {
+    const isLocalFile = (f: unknown): f is string =>
+      typeof f === 'string' && f.length > 0 && !/^https?:\/\//i.test(f) && !f.includes('/');
+    let files: string[] = [];
+    try { files = (JSON.parse(lifecycle.images || '[]') as unknown[]).filter(isLocalFile); } catch { /* ignore */ }
+    if (isLocalFile(lifecycle.preview) && !files.includes(lifecycle.preview)) files.push(lifecycle.preview);
+    await this.db.execute(sql`
+      INSERT INTO file_cleanup_queue (id, owner_type, owner_id, local_paths)
+      VALUES (${crypto.randomUUID()}, 'product', ${id}, ${JSON.stringify(files)})
+    `);
+    await this.db.execute(sql`DELETE FROM products WHERE id = ${id}`);
   }
 
   async toggleActivate(id: string, userId: string): Promise<boolean> {

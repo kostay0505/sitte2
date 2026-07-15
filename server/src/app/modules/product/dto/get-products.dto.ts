@@ -1,4 +1,4 @@
-import { IsUUID, IsNumber, IsBoolean, IsOptional, Min, IsString, IsEnum } from 'class-validator';
+import { IsUUID, IsNumber, IsBoolean, IsOptional, Min, IsString, IsEnum, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 
 export enum OrderBy {
@@ -18,6 +18,7 @@ export class GetProductsDto {
 
     @IsOptional()
     @IsString()
+    @Matches(/^[a-zA-Z0-9_\-:.@]+$/, { message: 'sellerId содержит недопустимые символы' })
     sellerId?: string;
 
     @IsOptional()

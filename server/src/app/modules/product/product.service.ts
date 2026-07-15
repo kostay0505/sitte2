@@ -159,6 +159,24 @@ export class ProductService {
     return this.repository.adminDelete(id);
   }
 
+  /**
+   * Физическое удаление (хотфикс ТЗ №2-fix2): разрешено только для неопубликованного
+   * товара без внешних ссылок. Освобождает позицию источника для повторного «В базу».
+   */
+  async hardDeleteProduct(id: string): Promise<void> {
+    const life = await this.repository.getLifecycle(id);
+    if (!life) throw new NotFoundException('Товар не найден');
+    if (life.visibility_status === 'published') {
+      throw new BadRequestException('Товар опубликован — сначала снимите с витрины («Скрыть»/«Архив»), затем удаляйте');
+    }
+    const refs = await this.repository.countExternalRefs(id);
+    if (refs.length) {
+      throw new BadRequestException(`На товар ссылаются: ${refs.join(', ')}. Физическое удаление запрещено — используйте архив.`);
+    }
+    await this.repository.hardDeleteProduct(id, life);
+    this.searchService.refreshSoon();
+  }
+
   async setListingStatus(id: string, listingStatus: 'active' | 'inactive' | 'sold'): Promise<void> {
     return this.repository.setListingStatus(id, listingStatus);
   }

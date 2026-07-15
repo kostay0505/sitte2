@@ -13,6 +13,18 @@ import {
     Request,
     NotFoundException,
 } from '@nestjs/common';
+import { IsEnum } from 'class-validator';
+
+enum ListingStatus {
+    ACTIVE = 'active',
+    INACTIVE = 'inactive',
+    SOLD = 'sold',
+}
+
+class SetListingStatusDto {
+    @IsEnum(ListingStatus)
+    listingStatus: ListingStatus;
+}
 import { ProductService } from './product.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -66,7 +78,7 @@ export class ProductController {
     @Get('admin/listings')
     @AdminJwtAuth()
     async getAdminListings(@Query('userId') userId: string): Promise<Product[]> {
-        return this.service.getAdminListings(userId || '6737529504');
+        return this.service.getAdminListings(userId || process.env.MAIN_SELLER_USER_ID || '6737529504');
     }
 
     @Patch('admin/:id/listing-status')
@@ -74,7 +86,7 @@ export class ProductController {
     @HttpCode(HttpStatus.OK)
     async setListingStatus(
         @Param('id') id: string,
-        @Body() body: { listingStatus: 'active' | 'inactive' | 'sold' }
+        @Body() body: SetListingStatusDto
     ): Promise<void> {
         return this.service.setListingStatus(id, body.listingStatus);
     }
@@ -84,6 +96,15 @@ export class ProductController {
     @HttpCode(HttpStatus.OK)
     async adminDelete(@Param('id') id: string): Promise<void> {
         return this.service.adminDeleteProduct(id);
+    }
+
+    // Физическое удаление черновика (ТЗ №2-fix2): гарды в сервисе
+    @Delete('admin/:id/hard')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async adminHardDelete(@Param('id') id: string): Promise<{ ok: boolean }> {
+        await this.service.hardDeleteProduct(id);
+        return { ok: true };
     }
 
     @Get('slug/:slug')

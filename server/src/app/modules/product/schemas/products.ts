@@ -52,7 +52,9 @@ export type Product = {
     slug?: string | null;
     brandSlug?: string | null;
     priceCash: string;
+    priceRub?: string | null;
     priceNonCash: string;
+    priceNonCashRub?: string | null;
     currency: CurrencyList;
     preview: string;
     files: string;
@@ -77,6 +79,7 @@ export type ProductShort = {
     slug?: string | null;
     brandSlug?: string | null;
     priceCash: string;
+    priceRub?: string | null;
     currency: CurrencyList;
     preview: string;
     description: string;

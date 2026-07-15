@@ -10,6 +10,21 @@ const UPLOADS_PHOTOS = path.join(UPLOADS_BASE, 'фотографии');
 const FALLBACK_CATEGORY_ID = '550e8400-e29b-41d4-a716-446655440001'; // «Без категории»
 const MAIN_SELLER = process.env.MAIN_SELLER_USER_ID || '6737529504';
 
+// та же транслитерация, что в product.repository — слаг обязателен, страница товара строится по нему
+function toSlug(str: string): string {
+    const ruMap: Record<string, string> = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'yo', 'ж': 'zh', 'з': 'z',
+        'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm', 'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r',
+        'с': 's', 'т': 't', 'у': 'u', 'ф': 'f', 'х': 'kh', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh',
+        'щ': 'shch', 'ъ': '', 'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+    };
+    return str.toLowerCase()
+        .split('').map(c => ruMap[c] ?? c).join('')
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 100);
+}
+
 @Injectable()
 export class SourceItemsService {
     private readonly logger = new Logger(SourceItemsService.name);
@@ -66,7 +81,10 @@ export class SourceItemsService {
                 productFiles.push(destName);
             }
         }
-        if (!productFiles.length) productFiles = images.filter(u => typeof u === 'string').slice(0, 10);
+        // Внешние URL в товар НЕ кладём: витрина не умеет чужие домены (next/image).
+        // Пока фото не скачаны — товар без фото (плейсхолдер витрины).
+        // TODO(ТЗ №2-fix Шаг 3): очередь автоскачивания фото с URL источника, владелец — product_id.
+        void images;
 
         // бренд: точное совпадение по имени из источника, иначе фолбэк «Другой»
         const brandName = (extra?.brand ?? '').toString().trim();
@@ -85,6 +103,14 @@ export class SourceItemsService {
         const price = si.price_amount != null ? String(si.price_amount) : '0';
         const currency = si.price_currency && /^[A-Z]{3}$/.test(si.price_currency) ? si.price_currency : 'EUR';
 
+        // слаг обязателен (страница товара /catalog/{brandSlug}/{slug}) — Шаг 2-fix
+        const slug = await this.generateUniqueSlug(title);
+        let brandSlug = '';
+        if (brandId) {
+            const r = (await this.db.execute(sql`SELECT slug FROM Brands WHERE id = ${brandId} LIMIT 1`)) as unknown as any[];
+            brandSlug = (r[0] as any[])[0]?.slug ?? '';
+        }
+
         await this.db.execute(sql`
             INSERT INTO products
                 (id, custom_id, user_id, title, slug, brand_slug, price_amount, price_noncash_amount,
@@ -92,7 +118,7 @@ export class SourceItemsService {
                  quantity, quantity_type, moderation_status, is_active, is_deleted, is_catalog,
                  source, external_id, source_item_id)
             VALUES
-                (${productId}, ${customId}, ${MAIN_SELLER}, ${title}, NULL, NULL, ${price}, ${price},
+                (${productId}, ${customId}, ${MAIN_SELLER}, ${title}, ${slug}, ${brandSlug}, ${price}, ${price},
                  ${currency}, ${productFiles[0] ?? ''}, ${JSON.stringify(productFiles)}, ${description},
                  ${FALLBACK_CATEGORY_ID}, ${brandId}, 1, 'piece', 'moderation', 1, 0, 1,
                  ${si.source}, ${si.external_id}, ${id})
@@ -100,6 +126,17 @@ export class SourceItemsService {
 
         this.logger.log(`toBase: ${si.source}#${si.external_id} → продукт ${productId} (${customId})`);
         return { productId, customId };
+    }
+
+    private async generateUniqueSlug(title: string): Promise<string> {
+        const base = toSlug(title) || 'item';
+        let candidate = base;
+        for (let i = 2; i < 50; i++) {
+            const r = (await this.db.execute(sql`SELECT id FROM products WHERE slug = ${candidate} LIMIT 1`)) as unknown as any[];
+            if (!(r[0] as any[]).length) return candidate;
+            candidate = `${base}-${i}`;
+        }
+        return `${base}-${Date.now()}`;
     }
 
     async archive(id: string): Promise<void> {

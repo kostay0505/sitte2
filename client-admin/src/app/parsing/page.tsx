@@ -173,7 +173,12 @@ export default function ParsingPage() {
                                 <td style={S.td}>{row.source}</td>
                                 <td style={{ ...S.td, maxWidth: 420 }}>
                                     {row.title || <i style={{ color: '#94a3b8' }}>без названия</i>}
-                                    {row.linked_product_id && <span style={{ ...S.badge('#dbeafe', '#1e40af'), marginLeft: 6 }}>уже в базе</span>}
+                                    {row.linked_product_id && (
+                                        <a href='/products' onClick={e => e.stopPropagation()}
+                                           style={{ ...S.badge('#dbeafe', '#1e40af'), marginLeft: 6, textDecoration: 'none' }}>
+                                            в товарах ↗
+                                        </a>
+                                    )}
                                 </td>
                                 <td style={S.td}>{fmtPrice(row)}</td>
                                 <td style={S.td}>{siteBadge(row.site_status)}</td>
@@ -182,9 +187,9 @@ export default function ParsingPage() {
                                 <td style={{ ...S.td, whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
                                     {tab !== 'trash' && (
                                         <button style={S.btn('#16a34a')} disabled={busy === row.id || !!row.linked_product_id}
-                                            title={row.linked_product_id ? 'Уже в базе' : 'Создать черновик товара'}
+                                            title={row.linked_product_id ? 'Черновик уже создан (раздел «Товары»)' : 'Создать черновик в разделе «Товары»'}
                                             onClick={() => act(row.id, () => siToBase(row.id))}>
-                                            {row.linked_product_id ? 'В базе ✓' : 'В базу'}
+                                            {row.linked_product_id ? 'В товарах ✓' : 'В товары'}
                                         </button>
                                     )}
                                     {tab === 'parsing' && (

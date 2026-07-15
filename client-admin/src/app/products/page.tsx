@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getAllProducts, createProduct, updateProduct } from '@/api/products/methods';
+import { getAllProducts, createProduct, updateProduct, hardDeleteProduct } from '@/api/products/methods';
 import { Product, CurrencyList, QuantityType, ProductStatus } from '@/api/products/models';
 import { Button } from '@/components/ui/Button/Button';
 import { COLORS, SPACING } from '@/constants/ui';
@@ -446,6 +446,7 @@ export default function ProductsPage() {
 
         // Устанавливаем начальные данные формы
         const initialData = {
+            customId: product.customId || '',
             userId: product.user?.tgId || '',
             name: product.name,
             priceCash: Number(product.priceCash),
@@ -551,6 +552,13 @@ export default function ProductsPage() {
 
     // Подготовка полей формы
     const getFormFields = (): FormField[] => [
+        {
+            name: 'customId',
+            label: 'SKU (ID из Парсинга)',
+            type: 'text',
+            required: false,
+            placeholder: 'Напр. TEM-001166'
+        },
         {
             name: 'userId',
             label: 'Пользователь',
@@ -749,6 +757,7 @@ export default function ProductsPage() {
     const getFormInitialData = (): Record<string, any> => {
         if (!editingProduct) {
             return {
+                customId: '',
                 userId: '6737529504',
                 name: '',
                 priceCash: '',
@@ -772,6 +781,7 @@ export default function ProductsPage() {
         const isSubcategory = currentCategory?.parentId;
 
         return {
+            customId: editingProduct.customId || '',
             userId: editingProduct.user?.tgId || '',
             name: editingProduct.name,
             priceCash: Number(editingProduct.priceCash),
@@ -797,6 +807,12 @@ export default function ProductsPage() {
             title: 'Медиа',
             width: '80px',
             render: (value) => <ProductImage src={value} />
+        },
+        {
+            key: 'customId',
+            title: 'SKU',
+            width: '130px',
+            render: (value) => value || <span style={{ color: '#94a3b8', fontStyle: 'italic' }}>нет</span>
         },
         {
             key: 'viewCount',
@@ -855,18 +871,42 @@ export default function ProductsPage() {
         {
             key: 'actions',
             title: 'Действия',
-            width: '150px',
+            width: '230px',
             render: (value, item) => (
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => handleEdit(item)}
-                >
-                    Редактировать
-                </Button>
+                <div style={{ display: 'flex', gap: 6 }}>
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleEdit(item)}
+                    >
+                        Редактировать
+                    </Button>
+                    <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleHardDelete(item)}
+                    >
+                        Удалить
+                    </Button>
+                </div>
             )
         }
     ];
+
+    // Хотфикс ТЗ №2-fix2: физическое удаление черновика (гарды на бэке:
+    // опубликованный или со ссылками — откажет с причиной)
+    async function handleHardDelete(item: Product) {
+        if (!confirm(`Удалить «${item.name}» НАВСЕГДА?\nПозиция источника снова станет доступной для «В товары», файлы будут вычищены.`)) return;
+        try {
+            await hardDeleteProduct(item.id);
+            showNotification({ message: 'Товар удалён', type: 'success' });
+            await loadData();
+        } catch (e: unknown) {
+            const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
+                || (e as Error).message;
+            alert(msg);
+        }
+    }
 
     return (
         <>

@@ -44,4 +44,8 @@ export class AdminCreateProductDto {
     @IsOptional()
     @IsBoolean()
     isActive?: boolean;
+
+    @IsOptional()
+    @IsString()
+    customId?: string;
 }

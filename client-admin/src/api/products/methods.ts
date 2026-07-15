@@ -24,6 +24,11 @@ export async function getAllProducts(): Promise<Product[]> {
     }
 }
 
+/** Физическое удаление черновика (ТЗ №2-fix2). Бэк откажет для опубликованных и со ссылками. */
+export async function hardDeleteProduct(id: string): Promise<void> {
+    await api.delete(`/products/admin/${id}/hard`);
+}
+
 export async function getProductById(id: string): Promise<Product> {
     try {
         const response = await api.get<Product>(`/products/${id}`);
