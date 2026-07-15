@@ -290,7 +290,19 @@ export class ProductRepository {
       files: JSON.stringify(dto.files),
       status: dto.status
     };
-    await this.db.insert(products).values(data);
+    // Пишем напрямую в новую таблицу `products` (легаси-имя Products — read-view,
+    // INSERT через него невозможен). visibility_status пересчитывает триггер БД.
+    await this.db.execute(sql`
+      INSERT INTO products
+        (id, custom_id, user_id, title, slug, brand_slug, price_amount, price_noncash_amount,
+         price_currency, preview, images, description, category_id, brand_id,
+         quantity, quantity_type, moderation_status, is_active, is_deleted, is_catalog)
+      VALUES
+        (${data.id}, ${(dto as { customId?: string }).customId ?? null}, ${data.userId}, ${dto.name},
+         ${slug}, ${brandSlug}, ${data.priceCash}, ${data.priceNonCash}, ${dto.currency},
+         ${dto.preview}, ${data.files}, ${dto.description}, ${dto.categoryId}, ${dto.brandId},
+         ${dto.quantity}, ${dto.quantityType}, ${data.status}, 1, 0, 1)
+    `);
 
     const result = await this.findById(data.id);
 
@@ -301,30 +313,44 @@ export class ProductRepository {
     return result;
   }
 
+  /** SET-части UPDATE для новой таблицы `products`; undefined-поля пропускаются (как в drizzle) */
+  private buildProductSetParts(dto: Partial<AdminUpdateProductDto> & { status?: string; isActive?: boolean }) {
+    const pairs: Array<[string, unknown]> = [
+      ['title', dto.name],
+      ['description', dto.description],
+      ['price_amount', dto.priceCash !== undefined ? dto.priceCash.toString() : undefined],
+      ['price_noncash_amount', dto.priceNonCash !== undefined ? dto.priceNonCash.toString() : undefined],
+      ['price_currency', dto.currency],
+      ['category_id', dto.categoryId],
+      ['brand_id', dto.brandId],
+      ['quantity', dto.quantity],
+      ['quantity_type', dto.quantityType],
+      ['preview', dto.preview],
+      ['images', dto.files !== undefined ? JSON.stringify(dto.files) : undefined],
+      ['custom_id', (dto as { customId?: string }).customId],
+      ['moderation_status', dto.status],
+      ['is_active', dto.isActive === undefined ? undefined : dto.isActive ? 1 : 0],
+    ];
+    return pairs
+      .filter(([, v]) => v !== undefined)
+      .map(([col, v]) => sql`${sql.raw(col)} = ${v as string | number | null}`);
+  }
+
   async update(id: string, dto: UpdateProductDto, userId: string): Promise<boolean> {
-    await this.db
-      .update(products)
-      .set({
-        ...dto,
-        priceCash: dto.priceCash.toString(),
-        priceNonCash: dto.priceNonCash.toString(),
-        files: JSON.stringify(dto.files),
-        status: ProductStatus.MODERATION
-      })
-      .where(and(eq(products.id, id), eq(products.userId, userId)));
+    const parts = this.buildProductSetParts({ ...dto, status: ProductStatus.MODERATION });
+    await this.db.execute(sql`
+      UPDATE products SET ${sql.join(parts, sql`, `)}
+      WHERE id = ${id} AND user_id = ${userId}
+    `);
     return true;
   }
 
   async adminUpdate(id: string, dto: AdminUpdateProductDto): Promise<void> {
-    await this.db
-      .update(products)
-      .set({
-        ...dto,
-        priceCash: dto.priceCash.toString(),
-        priceNonCash: dto.priceNonCash.toString(),
-        files: JSON.stringify(dto.files)
-      })
-      .where(eq(products.id, id));
+    const parts = this.buildProductSetParts(dto);
+    await this.db.execute(sql`
+      UPDATE products SET ${sql.join(parts, sql`, `)}
+      WHERE id = ${id}
+    `);
   }
 
   async toggleActivate(id: string, userId: string): Promise<boolean> {

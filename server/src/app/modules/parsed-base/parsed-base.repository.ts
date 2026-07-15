@@ -292,16 +292,19 @@ export class ParsedBaseRepository {
         const description = (data.description || data.title).slice(0, 5000);
         const quantityType = data.isSet ? 'set' : 'piece';
 
+        // Прямая запись в новую таблицу `products` (легаси-имя Products — read-view).
+        // Связь с источником: source из ParsedBase по sku; visibility пересчитает триггер БД.
         await this.db.execute(sql`
-            INSERT INTO Products
-                (id, customId, userId, name, slug, brandSlug, priceCash, priceNonCash, currency,
-                 preview, files, description, categoryId, brandId,
-                 quantity, quantityType, status, isActive, isDeleted, createdAt, updatedAt)
+            INSERT INTO products
+                (id, custom_id, user_id, title, slug, brand_slug, price_amount, price_noncash_amount,
+                 price_currency, preview, images, description, category_id, brand_id,
+                 quantity, quantity_type, moderation_status, is_active, is_deleted, is_catalog, source)
             VALUES
                 (${productId}, ${data.sku}, ${userId}, ${productTitle}, ${slug}, ${brandSlug},
                  ${priceCash.toString()}, ${priceNonCash.toString()}, ${currency},
                  ${preview}, ${files}, ${description}, ${data.categoryId}, ${data.brandId},
-                 1, ${quantityType}, 'approved', 1, 0, NOW(), NOW())
+                 1, ${quantityType}, 'approved', 1, 0, 1,
+                 (SELECT pb.source FROM ParsedBase pb WHERE pb.sku = ${data.sku} LIMIT 1))
         `);
 
         return productId;
