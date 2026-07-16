@@ -907,6 +907,120 @@ export class ProductRepository {
     return Promise.all(result[0].map(row => this.mapToProduct(row)));
   }
 
+  /**
+   * Объявления главного продавца с серверной пагинацией/сортировкой/фильтрами (ТЗ №2-fix4 B1–B4).
+   * Запрос идёт к НОВОЙ таблице `products` напрямую (не через legacy-view), чтобы читать
+   * source_item_id / has_pending_review / live-состояние источника из source_items.
+   */
+  async findAdminListingsPaged(params: {
+    userId: string; page: number; limit: number;
+    search?: string; status?: 'active' | 'inactive' | 'sold';
+    sortBy?: 'updated' | 'price' | 'name'; sortDir?: 'asc' | 'desc';
+    problemSource?: boolean; needsReview?: boolean;
+  }): Promise<{ items: any[]; total: number }> {
+    const conds = [sql`p.user_id = ${params.userId}`, sql`p.is_catalog = 1`, sql`p.is_deleted = 0`];
+    if (params.status === 'sold') conds.push(sql`p.moderation_status = 'sold'`);
+    else if (params.status === 'inactive') conds.push(sql`p.is_active = 0 AND p.moderation_status <> 'sold'`);
+    else if (params.status === 'active') conds.push(sql`p.is_active = 1 AND p.moderation_status <> 'sold'`);
+    if (params.search) {
+      const like = `%${params.search}%`;
+      conds.push(sql`(p.title LIKE ${like} OR p.custom_id LIKE ${like})`);
+    }
+    // «Проблема на источнике»: активное объявление, а источник продан/пропал
+    if (params.problemSource) {
+      conds.push(sql`p.source_item_id IS NOT NULL AND si.site_status IN ('sold','not_found') AND p.is_active = 1 AND p.moderation_status <> 'sold'`);
+    }
+    if (params.needsReview) conds.push(sql`p.has_pending_review = 1`);
+
+    const sortCol = params.sortBy === 'price' ? sql`p.price_amount`
+      : params.sortBy === 'name' ? sql`p.title`
+      : sql`p.updated_at`;
+    const dir = params.sortDir === 'desc' ? sql`DESC` : sql`ASC`;
+    const offset = (params.page - 1) * params.limit;
+    const where = sql.join(conds, sql` AND `);
+
+    const rows = (await this.db.execute(sql`
+      SELECT p.id, p.custom_id, p.title, p.slug, p.brand_slug,
+             p.price_amount, p.price_noncash_amount, p.price_currency,
+             p.preview, CAST(p.images AS CHAR) AS images, p.description,
+             p.quantity, p.quantity_type, p.moderation_status, p.is_active, p.is_deleted,
+             p.created_at, p.updated_at, p.source_item_id, p.has_pending_review,
+             c.id AS cat_id, c.name AS cat_name, b.id AS brand_id, b.name AS brand_name,
+             si.site_status, si.last_seen
+      FROM products p
+      LEFT JOIN Categories c ON c.id = p.category_id
+      LEFT JOIN Brands b ON b.id = p.brand_id
+      LEFT JOIN source_items si ON si.id = p.source_item_id
+      WHERE ${where}
+      ORDER BY ${sortCol} ${dir}
+      LIMIT ${params.limit} OFFSET ${offset}
+    `)) as unknown as any[];
+    const cntRes = (await this.db.execute(sql`
+      SELECT COUNT(*) AS c FROM products p
+      LEFT JOIN source_items si ON si.id = p.source_item_id
+      WHERE ${where}
+    `)) as unknown as any[];
+    const total = Number((cntRes[0] as any[])[0]?.c ?? 0);
+
+    const items = (rows[0] as any[]).map(r => {
+      let files: string[] = [];
+      try { files = JSON.parse(r.images || '[]'); } catch { /* ignore */ }
+      return {
+        id: r.id, customId: r.custom_id ?? null, name: r.title, slug: r.slug, brandSlug: r.brand_slug,
+        priceCash: r.price_amount != null ? String(r.price_amount) : '0',
+        priceNonCash: r.price_noncash_amount != null ? String(r.price_noncash_amount) : '0',
+        currency: r.price_currency, preview: r.preview, files, description: r.description,
+        quantity: r.quantity, quantityType: r.quantity_type, status: r.moderation_status,
+        isActive: !!r.is_active, isDeleted: !!r.is_deleted, createdAt: r.created_at, updatedAt: r.updated_at,
+        category: r.cat_id ? { id: r.cat_id, name: r.cat_name } : null,
+        brand: r.brand_id ? { id: r.brand_id, name: r.brand_name } : null,
+        sourceItemId: r.source_item_id ?? null,
+        sourceSiteStatus: r.source_item_id ? (r.site_status ?? 'available') : null,
+        sourceLastSeen: r.last_seen ?? null,
+        hasPendingReview: !!r.has_pending_review,
+      };
+    });
+    return { items, total };
+  }
+
+  /** Открытые записи проверки по товару (для модалки плейсхолдера) — ТЗ №2-fix4 B2 */
+  async getReviewInfo(productId: string): Promise<Array<{ field: string; reason: string; old_value: string | null }>> {
+    const rows = (await this.db.execute(sql`
+      SELECT field, reason, old_value FROM review_queue
+      WHERE product_id = ${productId} AND state = 'pending'
+    `)) as unknown as any[];
+    return rows[0] as any[];
+  }
+
+  /** «Проверено»: закрыть открытые review-записи товара и снять флаг — ТЗ №2-fix4 B2 */
+  async markReviewed(productId: string): Promise<void> {
+    await this.db.execute(sql`
+      UPDATE review_queue SET state = 'approved', resolved_at = NOW()
+      WHERE product_id = ${productId} AND state = 'pending'
+    `);
+    await this.db.execute(sql`UPDATE products SET has_pending_review = 0 WHERE id = ${productId}`);
+  }
+
+  async listingStatusCounts(userId: string): Promise<{
+    total: number; active: number; inactive: number; sold: number; onRequest: number; needsReview: number;
+  }> {
+    const rows = (await this.db.execute(sql`
+      SELECT
+        COUNT(*) AS total,
+        SUM(is_active = 1 AND moderation_status <> 'sold') AS active,
+        SUM(is_active = 0 AND moderation_status <> 'sold') AS inactive,
+        SUM(moderation_status = 'sold') AS sold,
+        SUM(price_amount = 0) AS onRequest,
+        SUM(has_pending_review = 1) AS needsReview
+      FROM products WHERE user_id = ${userId} AND is_catalog = 1 AND is_deleted = 0
+    `)) as unknown as any[];
+    const r = (rows[0] as any[])[0];
+    return {
+      total: Number(r?.total ?? 0), active: Number(r?.active ?? 0), inactive: Number(r?.inactive ?? 0),
+      sold: Number(r?.sold ?? 0), onRequest: Number(r?.onRequest ?? 0), needsReview: Number(r?.needsReview ?? 0),
+    };
+  }
+
   async findBySlug(slug: string, userId?: string): Promise<Product | null> {
     const favoriteProductsQuerySelect = userId
       ? sql`, favoriteProduct.isActive as productFavorite_isActive`

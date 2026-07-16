@@ -81,6 +81,58 @@ export class ProductController {
         return this.service.getAdminListings(userId || process.env.MAIN_SELLER_USER_ID || '6737529504');
     }
 
+    // ТЗ №2-fix4 B1–B4: пагинация/сортировка/фильтры + live-статус источника
+    @Get('admin/listings/paged')
+    @AdminJwtAuth()
+    async getAdminListingsPaged(@Query() q: any) {
+        const seller = q.userId || process.env.MAIN_SELLER_USER_ID || '6737529504';
+        return this.service.getAdminListingsPaged({
+            userId: seller,
+            page: Math.max(1, parseInt(q.page ?? '1') || 1),
+            limit: Math.min(100, Math.max(10, parseInt(q.limit ?? '25') || 25)),
+            search: q.search || undefined,
+            status: ['active', 'inactive', 'sold'].includes(q.status) ? q.status : undefined,
+            sortBy: ['updated', 'price', 'name'].includes(q.sortBy) ? q.sortBy : 'updated',
+            sortDir: q.sortDir === 'desc' ? 'desc' : 'asc',
+            problemSource: q.problemSource === '1' || q.problemSource === 'true',
+            needsReview: q.needsReview === '1' || q.needsReview === 'true',
+        });
+    }
+
+    @Get('admin/listing-counters')
+    @AdminJwtAuth()
+    async getListingCounters(@Query('userId') userId: string) {
+        return this.service.getListingCounters(userId || process.env.MAIN_SELLER_USER_ID || '6737529504');
+    }
+
+    @Get('admin/:id/review')
+    @AdminJwtAuth()
+    async getReviewInfo(@Param('id') id: string) {
+        return this.service.getReviewInfo(id);
+    }
+
+    @Post('admin/:id/reviewed')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async markReviewed(@Param('id') id: string): Promise<{ ok: boolean }> {
+        await this.service.markReviewed(id);
+        return { ok: true };
+    }
+
+    @Post('admin/listings/bulk-status')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkStatus(@Body() body: { ids: string[]; status: 'active' | 'inactive' | 'sold' }) {
+        return this.service.bulkSetListingStatus(body.ids ?? [], body.status);
+    }
+
+    @Post('admin/listings/bulk-reviewed')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkReviewed(@Body() body: { ids: string[] }) {
+        return this.service.bulkMarkReviewed(body.ids ?? []);
+    }
+
     @Patch('admin/:id/listing-status')
     @AdminJwtAuth()
     @HttpCode(HttpStatus.OK)

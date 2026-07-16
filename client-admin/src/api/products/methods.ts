@@ -112,3 +112,58 @@ export async function deleteAdminProduct(id: string): Promise<void> {
         throw new Error('Не удалось удалить объявление');
     }
 }
+
+// ── ТЗ №2-fix4: пагинация / live-статус источника / review ──────────────────
+
+export interface AdminListing {
+    id: string; customId: string | null; name: string; slug: string | null; brandSlug: string | null;
+    priceCash: string; priceNonCash: string; currency: string; preview: string; files: string[];
+    description: string; quantity: number; quantityType: string; status: string;
+    isActive: boolean; isDeleted: boolean; createdAt: string; updatedAt: string;
+    category: { id: string; name: string } | null; brand: { id: string; name: string } | null;
+    sourceItemId: string | null; sourceSiteStatus: string | null; sourceLastSeen: string | null;
+    hasPendingReview: boolean;
+}
+
+export async function getAdminListingsPaged(params: {
+    page: number; limit: number; search?: string;
+    status?: 'active' | 'inactive' | 'sold'; sortBy?: 'updated' | 'price' | 'name'; sortDir?: 'asc' | 'desc';
+    problemSource?: boolean; needsReview?: boolean;
+}): Promise<{ items: AdminListing[]; total: number }> {
+    const q: Record<string, string> = {
+        page: String(params.page), limit: String(params.limit),
+        sortBy: params.sortBy ?? 'updated', sortDir: params.sortDir ?? 'asc',
+    };
+    if (params.search) q.search = params.search;
+    if (params.status) q.status = params.status;
+    if (params.problemSource) q.problemSource = '1';
+    if (params.needsReview) q.needsReview = '1';
+    const { data } = await api.get('/products/admin/listings/paged', { params: q });
+    return data;
+}
+
+export async function getListingCounters(): Promise<{
+    total: number; active: number; inactive: number; sold: number; onRequest: number; needsReview: number;
+}> {
+    const { data } = await api.get('/products/admin/listing-counters');
+    return data;
+}
+
+export async function getProductReview(id: string): Promise<Array<{ field: string; reason: string; old_value: string | null }>> {
+    const { data } = await api.get(`/products/admin/${id}/review`);
+    return data;
+}
+
+export async function markReviewed(id: string): Promise<void> {
+    await api.post(`/products/admin/${id}/reviewed`);
+}
+
+export async function bulkListingStatus(ids: string[], status: 'active' | 'inactive' | 'sold'): Promise<{ updated: number }> {
+    const { data } = await api.post('/products/admin/listings/bulk-status', { ids, status });
+    return data;
+}
+
+export async function bulkMarkReviewed(ids: string[]): Promise<{ updated: number }> {
+    const { data } = await api.post('/products/admin/listings/bulk-reviewed', { ids });
+    return data;
+}

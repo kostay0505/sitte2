@@ -155,6 +155,42 @@ export class ProductService {
     return this.repository.findAdminListings(userId);
   }
 
+  // ТЗ №2-fix4 B1–B4: пагинированные объявления + live-статус источника + review
+  async getAdminListingsPaged(params: {
+    userId: string; page: number; limit: number;
+    search?: string; status?: 'active' | 'inactive' | 'sold';
+    sortBy?: 'updated' | 'price' | 'name'; sortDir?: 'asc' | 'desc';
+    problemSource?: boolean; needsReview?: boolean;
+  }) {
+    return this.repository.findAdminListingsPaged(params);
+  }
+
+  async getListingCounters(userId: string) {
+    return this.repository.listingStatusCounts(userId);
+  }
+
+  async getReviewInfo(productId: string) {
+    return this.repository.getReviewInfo(productId);
+  }
+
+  async markReviewed(productId: string): Promise<void> {
+    return this.repository.markReviewed(productId);
+  }
+
+  // Массовая смена статуса; «Продано» дополнительно закрывает review-запись (ТЗ B2/B3)
+  async bulkSetListingStatus(ids: string[], status: 'active' | 'inactive' | 'sold'): Promise<{ updated: number }> {
+    for (const id of ids) {
+      await this.repository.setListingStatus(id, status);
+      if (status === 'sold') await this.repository.markReviewed(id);
+    }
+    return { updated: ids.length };
+  }
+
+  async bulkMarkReviewed(ids: string[]): Promise<{ updated: number }> {
+    for (const id of ids) await this.repository.markReviewed(id);
+    return { updated: ids.length };
+  }
+
   async adminDeleteProduct(id: string): Promise<void> {
     return this.repository.adminDelete(id);
   }
@@ -178,7 +214,9 @@ export class ProductService {
   }
 
   async setListingStatus(id: string, listingStatus: 'active' | 'inactive' | 'sold'): Promise<void> {
-    return this.repository.setListingStatus(id, listingStatus);
+    await this.repository.setListingStatus(id, listingStatus);
+    // «Продано» на плейсхолдере автоматически закрывает review-запись (ТЗ №2-fix4 B2)
+    if (listingStatus === 'sold') await this.repository.markReviewed(id);
   }
 
   async toggleFavorite(

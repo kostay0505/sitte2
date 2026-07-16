@@ -10,10 +10,12 @@ import { SearchableSelect } from '../ui/SearchableSelect/SearchableSelect';
 export interface FormField {
   name: string;
   label: string;
-  type: 'text' | 'textarea' | 'number' | 'datetime-local' | 'file' | 'time' | 'checkbox' | 'select';
+  type: 'text' | 'textarea' | 'number' | 'datetime-local' | 'file' | 'time' | 'checkbox' | 'select' | 'info';
   required?: boolean;
   placeholder?: string;
   helpText?: string;
+  /** для type: 'info' — текст read-only блока (ТЗ №2-fix4 B2: блок review) */
+  infoText?: string;
   accept?: string;
   rows?: number;
   multiple?: boolean;
@@ -482,6 +484,19 @@ export function AdminForm<T extends Record<string, any>>({
     };
 
     switch (field.type) {
+      case 'info':
+        return (
+          <div
+            key={field.name}
+            style={{
+              padding: '10px 14px', background: '#fffbeb', border: '1px solid #fcd34d',
+              borderRadius: '8px', fontSize: '13px', color: '#92400e', whiteSpace: 'pre-wrap',
+            }}
+          >
+            {field.infoText || String(value)}
+          </div>
+        );
+
       case 'textarea':
         return (
           <textarea
