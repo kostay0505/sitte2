@@ -39,6 +39,9 @@ export class SourceItemsController {
             siteStatus: ['available', 'sold', 'not_found'].includes(q.siteStatus) ? q.siteStatus : undefined,
             noPrice: q.noPrice === '1' || q.noPrice === 'true',
             newWithinHours: q.newWithin === '24' ? 24 : q.newWithin === '168' ? 168 : undefined,
+            priceMin: q.priceMin != null && q.priceMin !== '' && !isNaN(Number(q.priceMin)) ? Number(q.priceMin) : undefined,
+            priceMax: q.priceMax != null && q.priceMax !== '' && !isNaN(Number(q.priceMax)) ? Number(q.priceMax) : undefined,
+            dateFrom: q.dateFrom || undefined,
         });
     }
 

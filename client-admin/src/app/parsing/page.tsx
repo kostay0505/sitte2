@@ -7,6 +7,7 @@ import {
     getSourceItems, getSources, getSourceItem,
     siToBase, siArchive, siUnarchive, siTrash, siRestore, siDeleteNow,
     siBulkToBase, siBulkArchive, siBulkTrash,
+    getParsers, toggleParser, ParserStatus,
     SourceItemRow, SourceItemFull, SourceTab,
 } from '@/api/source-items/methods';
 import { ENVIRONMENT_CONFIG } from '@/config/environment';
@@ -76,6 +77,15 @@ function ParsingPageInner() {
     const [siteStatus, setSiteStatus] = useState(sp.get('site') || '');
     const [noPrice, setNoPrice] = useState(sp.get('noPrice') === '1');
     const [newWithin, setNewWithin] = useState<'' | '24' | '168'>((sp.get('newWithin') as any) || '');
+    // #3 per-column фильтры по значению
+    const [priceMinInput, setPriceMinInput] = useState(sp.get('priceMin') || '');
+    const [priceMaxInput, setPriceMaxInput] = useState(sp.get('priceMax') || '');
+    const [priceMin, setPriceMin] = useState(sp.get('priceMin') || '');
+    const [priceMax, setPriceMax] = useState(sp.get('priceMax') || '');
+    const [dateFrom, setDateFrom] = useState(sp.get('dateFrom') || '');
+    // #2 переключатель парсеров
+    const [parsers, setParsers] = useState<ParserStatus[]>([]);
+    const [parsersOpen, setParsersOpen] = useState(false);
 
     const [items, setItems] = useState<SourceItemRow[]>([]);
     const [total, setTotal] = useState(0);
@@ -88,7 +98,14 @@ function ParsingPageInner() {
     const [lightbox, setLightbox] = useState<{ imgs: string[]; i: number } | null>(null);
 
     useEffect(() => { getSources().then(setSources).catch(() => {}); }, []);
+    useEffect(() => { getParsers().then(setParsers).catch(() => {}); }, []);
     useEffect(() => { const t = setTimeout(() => { setSearch(searchInput); setPage(1); }, 400); return () => clearTimeout(t); }, [searchInput]);
+    useEffect(() => { const t = setTimeout(() => { setPriceMin(priceMinInput); setPriceMax(priceMaxInput); setPage(1); }, 400); return () => clearTimeout(t); }, [priceMinInput, priceMaxInput]);
+
+    const doToggleParser = async (source: string) => {
+        try { const r = await toggleParser(source); setParsers(ps => ps.map(p => (p.source === r.source ? r : p))); }
+        catch (e) { alert((e as Error).message); }
+    };
 
     // A6: синхронизация состояния в URL
     useEffect(() => {
@@ -103,9 +120,12 @@ function ParsingPageInner() {
         if (siteStatus) q.set('site', siteStatus);
         if (noPrice) q.set('noPrice', '1');
         if (newWithin) q.set('newWithin', newWithin);
+        if (priceMin) q.set('priceMin', priceMin);
+        if (priceMax) q.set('priceMax', priceMax);
+        if (dateFrom) q.set('dateFrom', dateFrom);
         const qs = q.toString();
         router.replace(qs ? `/parsing?${qs}` : '/parsing', { scroll: false });
-    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, router]);
+    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom, router]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -113,15 +133,16 @@ function ParsingPageInner() {
             const data = await getSourceItems({
                 tab, source: source || undefined, search: search || undefined, sortBy, sortDir, page, limit: LIMIT,
                 linked: linked || undefined, siteStatus: siteStatus || undefined, noPrice, newWithin: newWithin || undefined,
+                priceMin: priceMin || undefined, priceMax: priceMax || undefined, dateFrom: dateFrom || undefined,
             });
             setItems(data.items);
             setTotal(data.total);
         } catch (e) { alert((e as Error).message); }
         finally { setLoading(false); }
-    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin]);
+    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom]);
 
     useEffect(() => { load(); }, [load]);
-    useEffect(() => { setSelected(new Set()); }, [tab, source, search, page, linked, siteStatus, noPrice, newWithin]);
+    useEffect(() => { setSelected(new Set()); }, [tab, source, search, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom]);
 
     const pages = Math.max(1, Math.ceil(total / LIMIT));
     const toggleSort = (col: string) => { if (sortBy === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc')); else { setSortBy(col); setSortDir('desc'); } setPage(1); };
@@ -186,11 +207,27 @@ function ParsingPageInner() {
             </div>
 
             <div style={S.controls}>
-                <select style={S.select} value={source} onChange={e => { setSource(e.target.value); setPage(1); }}>
-                    <option value=''>Все источники</option>
-                    {sources.map(s => <option key={s.source} value={s.source}>{s.source} ({s.cnt})</option>)}
-                </select>
-                <input style={S.input} placeholder='Поиск по названию…' value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+                {/* #2: переключатель парсеров */}
+                <div style={{ position: 'relative' }}>
+                    <button onClick={() => setParsersOpen(o => !o)} style={{ ...S.select, cursor: 'pointer', fontWeight: 600 }}>
+                        ⚙ Парсеры: {parsers.filter(p => p.enabled).length}/{parsers.length} вкл ▾
+                    </button>
+                    {parsersOpen && (
+                        <div style={{ position: 'absolute', top: '100%', left: 0, zIndex: 200, marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', minWidth: 240, padding: 6 }}>
+                            {parsers.map(p => (
+                                <div key={p.source} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 8px', borderRadius: 6 }}>
+                                    <span style={{ fontSize: 13, color: '#334155' }}>{p.source}</span>
+                                    <button onClick={() => doToggleParser(p.source)}
+                                        title={p.enabled ? 'Выключить' : 'Включить'}
+                                        style={{ width: 46, height: 24, borderRadius: 20, border: 'none', cursor: 'pointer', position: 'relative', background: p.enabled ? '#22c55e' : '#cbd5e1', transition: 'background .15s' }}>
+                                        <span style={{ position: 'absolute', top: 2, left: p.enabled ? 24 : 2, width: 20, height: 20, borderRadius: '50%', background: '#fff', transition: 'left .15s' }} />
+                                    </button>
+                                </div>
+                            ))}
+                            {!parsers.length && <div style={{ padding: 8, fontSize: 13, color: '#94a3b8' }}>Нет данных</div>}
+                        </div>
+                    )}
+                </div>
                 <span style={{ fontSize: 13, color: '#64748b' }}>{loading ? 'Загрузка…' : `Найдено: ${total}`}</span>
             </div>
 
@@ -224,6 +261,44 @@ function ParsingPageInner() {
                         <th style={S.th} onClick={() => toggleSort('first_seen')}>Дата парсинга{arrow('first_seen')}</th>
                         {tab === 'trash' && <th style={{ ...S.th, cursor: 'default' }}>До удаления</th>}
                         <th style={{ ...S.th, cursor: 'default' }}>Действия</th>
+                    </tr>
+                    {/* #3: фильтры по значению на каждую колонку */}
+                    <tr>
+                        <th style={{ ...S.th, cursor: 'default' }} />
+                        <th style={{ ...S.th, cursor: 'default' }} />
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            <select style={{ ...S.select, padding: '4px 6px', fontSize: 12 }} value={source} onChange={e => { setSource(e.target.value); setPage(1); }}>
+                                <option value=''>все</option>
+                                {sources.map(s => <option key={s.source} value={s.source}>{s.source}</option>)}
+                            </select>
+                        </th>
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            <input style={{ ...S.input, minWidth: 120, padding: '4px 6px', fontSize: 12 }} placeholder='фильтр…' value={searchInput} onChange={e => setSearchInput(e.target.value)} />
+                        </th>
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            <div style={{ display: 'flex', gap: 4 }}>
+                                <input style={{ width: 52, padding: '4px 6px', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 6 }} placeholder='от' value={priceMinInput} onChange={e => setPriceMinInput(e.target.value)} />
+                                <input style={{ width: 52, padding: '4px 6px', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 6 }} placeholder='до' value={priceMaxInput} onChange={e => setPriceMaxInput(e.target.value)} />
+                            </div>
+                        </th>
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            <select style={{ ...S.select, padding: '4px 6px', fontSize: 12 }} value={siteStatus} onChange={e => { setSiteStatus(e.target.value); setPage(1); }}>
+                                <option value=''>все</option>
+                                <option value='available'>активен</option>
+                                <option value='sold'>продан</option>
+                                <option value='not_found'>not_found</option>
+                            </select>
+                        </th>
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            <input type='date' style={{ padding: '4px 6px', fontSize: 12, border: '1px solid #cbd5e1', borderRadius: 6 }} value={dateFrom} onChange={e => { setDateFrom(e.target.value); setPage(1); }} />
+                        </th>
+                        {tab === 'trash' && <th style={{ ...S.th, cursor: 'default' }} />}
+                        <th style={{ ...S.th, cursor: 'default' }}>
+                            {(source || searchInput || priceMinInput || priceMaxInput || siteStatus || dateFrom) && (
+                                <button onClick={() => { setSource(''); setSearchInput(''); setPriceMinInput(''); setPriceMaxInput(''); setSiteStatus(''); setDateFrom(''); setPage(1); }}
+                                    style={{ padding: '4px 8px', fontSize: 11, border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', cursor: 'pointer', color: '#64748b' }}>× сброс</button>
+                            )}
+                        </th>
                     </tr>
                 </thead>
                 <tbody>

@@ -49,10 +49,15 @@ export class SourceItemsRepository {
         tab: SourceTab; source?: string; search?: string;
         sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number;
         linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithinHours?: number;
+        priceMin?: number; priceMax?: number; dateFrom?: string;
     }): Promise<{ items: SourceItemListRow[]; total: number }> {
         const conds = [this.tabCondition(opts.tab)];
         if (opts.source) conds.push(sql`si.source = ${opts.source}`);
         if (opts.search?.trim()) conds.push(sql`si.title LIKE ${'%' + opts.search.trim() + '%'}`);
+        // per-column фильтры по значению (правка 2026-07-16)
+        if (opts.priceMin != null) conds.push(sql`si.price_amount >= ${opts.priceMin}`);
+        if (opts.priceMax != null) conds.push(sql`si.price_amount <= ${opts.priceMax}`);
+        if (opts.dateFrom) conds.push(sql`si.first_seen >= ${opts.dateFrom}`);
         // A2 отобранность
         if (opts.linked === 'linked') conds.push(sql`EXISTS (SELECT 1 FROM products p2 WHERE p2.source_item_id = si.id)`);
         else if (opts.linked === 'unlinked') conds.push(sql`NOT EXISTS (SELECT 1 FROM products p2 WHERE p2.source_item_id = si.id)`);

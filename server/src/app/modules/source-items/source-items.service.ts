@@ -40,6 +40,7 @@ export class SourceItemsService {
         tab: SourceTab; source?: string; search?: string; sortBy?: string; sortDir?: 'asc' | 'desc';
         page: number; limit: number;
         linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithinHours?: number;
+        priceMin?: number; priceMax?: number; dateFrom?: string;
     }) {
         return this.repo.list(opts);
     }

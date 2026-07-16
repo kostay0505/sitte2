@@ -28,6 +28,18 @@ const navStructure: NavEntry[] = [
   },
   {
     type: 'link',
+    title: 'Все источники',
+    icon: '🗂',
+    path: '/parsing',
+  },
+  {
+    type: 'link',
+    title: 'Объявления',
+    icon: '📢',
+    path: '/listings',
+  },
+  {
+    type: 'link',
     title: 'CRM',
     icon: '🤝',
     path: '/crm',
@@ -72,7 +84,6 @@ const navStructure: NavEntry[] = [
     label: 'База данных',
     icon: '🗄️',
     items: [
-      { title: 'Объявления',    path: '/listings' },
       { title: 'Бренды',        path: '/brands' },
       { title: 'Бренды и модели', path: '/product-models' },
       { title: 'Города',        path: '/cities' },
@@ -102,7 +113,6 @@ const navStructure: NavEntry[] = [
     label: 'Парсинг',
     icon: '🔄',
     items: [
-      { title: '🗂 Все источники', path: '/parsing' },
       { title: '📋 База',      path: '/parsing/base' },
       { title: 'Arrius',      path: '/parsing/arrius' },
       { title: 'Gebraucht',   path: '/parsing/gebraucht' },

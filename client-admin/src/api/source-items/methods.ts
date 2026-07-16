@@ -35,6 +35,7 @@ export async function getSourceItems(params: {
     tab: SourceTab; source?: string; search?: string;
     sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number;
     linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithin?: '24' | '168';
+    priceMin?: string; priceMax?: string; dateFrom?: string;
 }): Promise<{ items: SourceItemRow[]; total: number }> {
     const p: Record<string, string> = {
         tab: params.tab, page: String(params.page), limit: String(params.limit),
@@ -46,9 +47,17 @@ export async function getSourceItems(params: {
     if (params.siteStatus) p.siteStatus = params.siteStatus;
     if (params.noPrice) p.noPrice = '1';
     if (params.newWithin) p.newWithin = params.newWithin;
+    if (params.priceMin) p.priceMin = params.priceMin;
+    if (params.priceMax) p.priceMax = params.priceMax;
+    if (params.dateFrom) p.dateFrom = params.dateFrom;
     const { data } = await api.get('/source-items', { params: p });
     return data;
 }
+
+// Рантайм-переключатель парсеров
+export interface ParserStatus { source: string; enabled: boolean }
+export const getParsers = () => api.get('/parsers').then(r => r.data as ParserStatus[]);
+export const toggleParser = (source: string) => api.post(`/parsers/${source}/toggle`).then(r => r.data as ParserStatus);
 
 export interface BulkResult { created?: number; done?: number; skipped?: number; errors?: string[] }
 export const siBulkToBase = (ids: string[]) => api.post('/source-items/bulk/to-base', { ids }).then(r => r.data as BulkResult);
