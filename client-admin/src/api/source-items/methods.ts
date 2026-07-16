@@ -18,6 +18,7 @@ export interface SourceItemRow {
     delete_after: string | null;
     trash_reason: string | null;
     linked_product_id: string | null;
+    preview: string | null;
 }
 
 export interface SourceItemFull extends SourceItemRow {
@@ -33,10 +34,26 @@ export interface SourceItemFull extends SourceItemRow {
 export async function getSourceItems(params: {
     tab: SourceTab; source?: string; search?: string;
     sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number;
+    linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithin?: '24' | '168';
 }): Promise<{ items: SourceItemRow[]; total: number }> {
-    const { data } = await api.get('/source-items', { params });
+    const p: Record<string, string> = {
+        tab: params.tab, page: String(params.page), limit: String(params.limit),
+        sortBy: params.sortBy ?? 'first_seen', sortDir: params.sortDir ?? 'desc',
+    };
+    if (params.source) p.source = params.source;
+    if (params.search) p.search = params.search;
+    if (params.linked) p.linked = params.linked;
+    if (params.siteStatus) p.siteStatus = params.siteStatus;
+    if (params.noPrice) p.noPrice = '1';
+    if (params.newWithin) p.newWithin = params.newWithin;
+    const { data } = await api.get('/source-items', { params: p });
     return data;
 }
+
+export interface BulkResult { created?: number; done?: number; skipped?: number; errors?: string[] }
+export const siBulkToBase = (ids: string[]) => api.post('/source-items/bulk/to-base', { ids }).then(r => r.data as BulkResult);
+export const siBulkArchive = (ids: string[]) => api.post('/source-items/bulk/archive', { ids }).then(r => r.data as BulkResult);
+export const siBulkTrash = (ids: string[]) => api.post('/source-items/bulk/trash', { ids }).then(r => r.data as BulkResult);
 
 export async function getSources(): Promise<Array<{ source: string; cnt: number }>> {
     const { data } = await api.get('/source-items/sources');

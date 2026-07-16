@@ -36,7 +36,11 @@ export class SourceItemsService {
         @Inject('DATABASE') private db: Database,
     ) {}
 
-    list(opts: { tab: SourceTab; source?: string; search?: string; sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number }) {
+    list(opts: {
+        tab: SourceTab; source?: string; search?: string; sortBy?: string; sortDir?: 'asc' | 'desc';
+        page: number; limit: number;
+        linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithinHours?: number;
+    }) {
         return this.repo.list(opts);
     }
 
@@ -182,5 +186,45 @@ export class SourceItemsService {
         if (linked) throw new BadRequestException('У позиции появился связанный товар — удаление запрещено');
         await this.repo.hardDelete(id);
         this.logger.log(`hardDelete: ${si.source}#${si.external_id} «${(si.title || '').slice(0, 50)}»`);
+    }
+
+    // ── Массовые операции (ТЗ №2-fix4 A5): те же гарды, что у одиночных, + сводка ──
+    async bulkToBase(ids: string[]): Promise<{ created: number; skipped: number; errors: string[] }> {
+        let created = 0, skipped = 0;
+        const errors: string[] = [];
+        for (const id of ids) {
+            try {
+                if (await this.repo.linkedProductId(id)) { skipped++; continue; }
+                await this.toBase(id);
+                created++;
+            } catch (e) {
+                if (e instanceof ConflictException) skipped++;
+                else errors.push(`${id}: ${(e as Error).message}`);
+            }
+        }
+        return { created, skipped, errors };
+    }
+
+    async bulkArchive(ids: string[]): Promise<{ done: number; errors: string[] }> {
+        let done = 0;
+        const errors: string[] = [];
+        for (const id of ids) {
+            try { await this.archive(id); done++; }
+            catch (e) { errors.push(`${id}: ${(e as Error).message}`); }
+        }
+        return { done, errors };
+    }
+
+    async bulkTrash(ids: string[]): Promise<{ done: number; skipped: number; errors: string[] }> {
+        let done = 0, skipped = 0;
+        const errors: string[] = [];
+        for (const id of ids) {
+            try { await this.trash(id); done++; }
+            catch (e) {
+                if (e instanceof BadRequestException) skipped++; // связан с товаром — пропускаем
+                else errors.push(`${id}: ${(e as Error).message}`);
+            }
+        }
+        return { done, skipped, errors };
     }
 }

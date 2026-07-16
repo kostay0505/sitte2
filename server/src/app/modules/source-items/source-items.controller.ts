@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query } from '@nestjs/common';
 import { AdminJwtAuth } from '../../decorators/admin-jwt-auth.decorator';
 import { SourceItemsService } from './source-items.service';
 import { PhotoDownloadService } from './photo-download.service';
@@ -24,25 +24,38 @@ export class SourceItemsController {
     }
 
     @Get()
-    list(
-        @Query('tab') tab?: string,
-        @Query('source') source?: string,
-        @Query('search') search?: string,
-        @Query('sortBy') sortBy?: string,
-        @Query('sortDir') sortDir?: string,
-        @Query('page') page?: string,
-        @Query('limit') limit?: string,
-    ) {
-        const t: SourceTab = tab === 'archive' || tab === 'trash' ? tab : 'parsing';
+    list(@Query() q: any) {
+        const t: SourceTab = q.tab === 'archive' || q.tab === 'trash' ? q.tab : 'parsing';
         return this.service.list({
             tab: t,
-            source: source || undefined,
-            search: search || undefined,
-            sortBy: sortBy || undefined,
-            sortDir: sortDir === 'asc' ? 'asc' : 'desc',
-            page: Math.max(1, parseInt(page ?? '1') || 1),
-            limit: Math.min(100, Math.max(5, parseInt(limit ?? '25') || 25)),
+            source: q.source || undefined,
+            search: q.search || undefined,
+            sortBy: q.sortBy || undefined,
+            sortDir: q.sortDir === 'asc' ? 'asc' : 'desc',
+            page: Math.max(1, parseInt(q.page ?? '1') || 1),
+            limit: Math.min(100, Math.max(5, parseInt(q.limit ?? '25') || 25)),
+            // ТЗ №2-fix4 A2–A4
+            linked: q.linked === 'linked' || q.linked === 'unlinked' ? q.linked : undefined,
+            siteStatus: ['available', 'sold', 'not_found'].includes(q.siteStatus) ? q.siteStatus : undefined,
+            noPrice: q.noPrice === '1' || q.noPrice === 'true',
+            newWithinHours: q.newWithin === '24' ? 24 : q.newWithin === '168' ? 168 : undefined,
         });
+    }
+
+    // Массовые операции (ТЗ №2-fix4 A5) — до ':id'-маршрутов, чтобы 'bulk' не попал в :id
+    @Post('bulk/to-base')
+    bulkToBase(@Body() body: { ids: string[] }) {
+        return this.service.bulkToBase(body.ids ?? []);
+    }
+
+    @Post('bulk/archive')
+    bulkArchive(@Body() body: { ids: string[] }) {
+        return this.service.bulkArchive(body.ids ?? []);
+    }
+
+    @Post('bulk/trash')
+    bulkTrash(@Body() body: { ids: string[] }) {
+        return this.service.bulkTrash(body.ids ?? []);
     }
 
     @Get('sources')
