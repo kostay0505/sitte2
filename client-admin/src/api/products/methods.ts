@@ -181,3 +181,17 @@ export async function bulkMarkReviewed(ids: string[]): Promise<{ updated: number
     const { data } = await api.post('/products/admin/listings/bulk-reviewed', { ids });
     return data;
 }
+
+// ── ТЗ №4 Ч4.1: массовые категория/бренд/подкатегория ──
+export async function bulkListingCategory(ids: string[], categoryId: string): Promise<{ updated: number }> {
+    const { data } = await api.post('/products/admin/listings/bulk-category', { ids, categoryId });
+    return data;
+}
+export async function bulkListingBrand(ids: string[], brandId: string): Promise<{ updated: number }> {
+    const { data } = await api.post('/products/admin/listings/bulk-brand', { ids, brandId });
+    return data;
+}
+export async function bulkListingSubcategory(ids: string[], subcategoryId: string): Promise<{ updated: number; skipped: number }> {
+    const { data } = await api.post('/products/admin/listings/bulk-subcategory', { ids, subcategoryId });
+    return data;
+}

@@ -133,6 +133,26 @@ export class ProductController {
         return this.service.bulkMarkReviewed(body.ids ?? []);
     }
 
+    // ── ТЗ №4 Ч4.1: массовые категория/бренд/подкатегория ──
+    @Post('admin/listings/bulk-category')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkCategory(@Body() body: { ids: string[]; categoryId: string }) {
+        return this.service.bulkSetCategory(body.ids ?? [], body.categoryId);
+    }
+    @Post('admin/listings/bulk-brand')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkBrand(@Body() body: { ids: string[]; brandId: string }) {
+        return this.service.bulkSetBrand(body.ids ?? [], body.brandId);
+    }
+    @Post('admin/listings/bulk-subcategory')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkSubcategory(@Body() body: { ids: string[]; subcategoryId: string }) {
+        return this.service.bulkSetSubcategory(body.ids ?? [], body.subcategoryId);
+    }
+
     // ── ТЗ №4 Ч4.4: Google Sheets (static-пути до :id-маршрутов) ──
     @Get('admin/sheets-statuses')
     @AdminJwtAuth()

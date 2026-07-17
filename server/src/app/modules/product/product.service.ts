@@ -60,6 +60,23 @@ export class ProductService {
     return this.repository.sheetsStatuses();
   }
 
+  // ── ТЗ №4 Ч4.1: массовые категория/бренд/подкатегория ──
+  async bulkSetCategory(ids: string[], categoryId: string): Promise<{ updated: number }> {
+    const updated = await this.repository.bulkSetCategory(ids, categoryId);
+    this.searchService.refreshSoon();
+    return { updated };
+  }
+  async bulkSetBrand(ids: string[], brandId: string): Promise<{ updated: number }> {
+    const updated = await this.repository.bulkSetBrand(ids, brandId);
+    this.searchService.refreshSoon();
+    return { updated };
+  }
+  async bulkSetSubcategory(ids: string[], subId: string): Promise<{ updated: number; skipped: number }> {
+    const r = await this.repository.bulkSetSubcategory(ids, subId);
+    this.searchService.refreshSoon();
+    return r;
+  }
+
   async getBasicInfo(userId?: string): Promise<{
     new: Array<ProductShort>;
     mainSeller: Array<ProductShort>;

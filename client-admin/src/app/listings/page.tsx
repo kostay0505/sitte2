@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import {
     getAdminListingsPaged, getListingCounters, getProductReview, markReviewed,
     bulkListingStatus, bulkMarkReviewed, setListingStatus, deleteAdminProduct, updateProduct,
+    bulkListingCategory, bulkListingBrand, bulkListingSubcategory,
     AdminListing,
 } from '@/api/products/methods';
 import { getAllBrands } from '@/api/brands/methods';
@@ -258,6 +259,26 @@ export default function ListingsPage() {
         try { const r = await bulkMarkReviewed([...selectedIds]); showNotification({ message: `Проверено: ${r.updated}`, type: 'success' }); setSelectedIds(new Set()); await loadData(); }
         catch (e: any) { showNotification({ message: e.message, type: 'error' }); }
     };
+    // ТЗ №4 Ч4.1 — массовые категория/бренд/подкатегория
+    const bulkCategory = async (categoryId: string) => {
+        if (!categoryId) return;
+        try { const r = await bulkListingCategory([...selectedIds], categoryId); showNotification({ message: `Категория: обновлено ${r.updated}`, type: 'success' }); setSelectedIds(new Set()); await loadData(); }
+        catch (e: any) { showNotification({ message: e.message, type: 'error' }); }
+    };
+    const bulkBrand = async (brandId: string) => {
+        if (!brandId) return;
+        try { const r = await bulkListingBrand([...selectedIds], brandId); showNotification({ message: `Бренд: обновлено ${r.updated}`, type: 'success' }); setSelectedIds(new Set()); await loadData(); }
+        catch (e: any) { showNotification({ message: e.message, type: 'error' }); }
+    };
+    const bulkSubcategory = async (subId: string) => {
+        if (!subId) return;
+        try {
+            const r = await bulkListingSubcategory([...selectedIds], subId);
+            showNotification({ message: `Подкатегория: обновлено ${r.updated}, пропущено ${r.skipped} (нет/другая категория)`, type: r.updated ? 'success' : 'error' });
+            setSelectedIds(new Set()); await loadData();
+        } catch (e: any) { showNotification({ message: e.message, type: 'error' }); }
+    };
+    const allSubcategories = categories.filter(c => c.parentId);
 
     const th: React.CSSProperties = { padding: '10px 12px', textAlign: 'left', fontSize: 12, fontWeight: 600, color: '#64748b', whiteSpace: 'nowrap', borderBottom: '1px solid #e2e8f0' };
     const thSort: React.CSSProperties = { ...th, cursor: 'pointer', userSelect: 'none' };
@@ -399,6 +420,23 @@ export default function ListingsPage() {
                     <button onClick={() => bulkStatus('inactive')} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#64748b', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Не активно</button>
                     <button onClick={() => bulkStatus('sold')} style={{ padding: '6px 12px', borderRadius: 6, border: 'none', background: '#1d4ed8', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Продано</button>
                     <button onClick={bulkReviewed} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.3)', background: 'rgba(255,255,255,0.1)', color: '#fff', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>Проверено</button>
+                    {/* Ч4.1: массовые категория / подкатегория / бренд */}
+                    <select defaultValue='' onChange={e => { bulkCategory(e.target.value); e.target.value = ''; }}
+                        style={{ padding: '6px 8px', borderRadius: 6, border: 'none', fontSize: 12, maxWidth: 170 }}>
+                        <option value='' disabled>Категория…</option>
+                        {mainCategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <select defaultValue='' onChange={e => { bulkSubcategory(e.target.value); e.target.value = ''; }}
+                        title='Применится только к строкам, чья категория = родитель подкатегории'
+                        style={{ padding: '6px 8px', borderRadius: 6, border: 'none', fontSize: 12, maxWidth: 170 }}>
+                        <option value='' disabled>Подкатегория…</option>
+                        {allSubcategories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                    <select defaultValue='' onChange={e => { bulkBrand(e.target.value); e.target.value = ''; }}
+                        style={{ padding: '6px 8px', borderRadius: 6, border: 'none', fontSize: 12, maxWidth: 160 }}>
+                        <option value='' disabled>Бренд…</option>
+                        {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                    </select>
                     <button onClick={() => setSelectedIds(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#94a3b8', fontSize: 12, cursor: 'pointer', marginLeft: 'auto' }}>× Снять</button>
                 </div>
             )}

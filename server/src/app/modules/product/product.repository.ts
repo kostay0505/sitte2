@@ -1031,6 +1031,42 @@ export class ProductRepository {
     return (rows[0] as any[]).map(r => ({ product_id: r.product_id, sent: !!r.sent }));
   }
 
+  // ── ТЗ №4 Ч4.1: массовые категория/бренд/подкатегория ────────────────────
+  async bulkSetCategory(ids: string[], categoryId: string): Promise<number> {
+    if (!ids.length) return 0;
+    const res = (await this.db.execute(sql`
+      UPDATE products SET category_id = ${categoryId} WHERE id IN (${sql.join(ids.map(i => sql`${i}`), sql`, `)})
+    `)) as unknown as any;
+    return res[0]?.affectedRows ?? ids.length;
+  }
+
+  async bulkSetBrand(ids: string[], brandId: string): Promise<number> {
+    if (!ids.length) return 0;
+    const res = (await this.db.execute(sql`
+      UPDATE products p JOIN Brands b ON b.id = ${brandId}
+      SET p.brand_id = b.id, p.brand_slug = b.slug
+      WHERE p.id IN (${sql.join(ids.map(i => sql`${i}`), sql`, `)})
+    `)) as unknown as any;
+    return res[0]?.affectedRows ?? 0;
+  }
+
+  /**
+   * Подкатегория — только строкам, чья текущая категория = родитель этой подкатегории
+   * (ТЗ №4 Ч4.1: «категория задана И подкатегория ей принадлежит»). Прочие пропускаются.
+   */
+  async bulkSetSubcategory(ids: string[], subId: string): Promise<{ updated: number; skipped: number }> {
+    if (!ids.length) return { updated: 0, skipped: 0 };
+    const pr = (await this.db.execute(sql`SELECT parentId FROM Categories WHERE id = ${subId} LIMIT 1`)) as unknown as any[];
+    const parent = (pr[0] as any[])[0]?.parentId;
+    if (!parent) return { updated: 0, skipped: ids.length }; // выбранное — не подкатегория
+    const res = (await this.db.execute(sql`
+      UPDATE products SET category_id = ${subId}
+      WHERE id IN (${sql.join(ids.map(i => sql`${i}`), sql`, `)}) AND category_id = ${parent}
+    `)) as unknown as any;
+    const updated = res[0]?.affectedRows ?? 0;
+    return { updated, skipped: ids.length - updated };
+  }
+
   /** «Проверено»: закрыть открытые review-записи товара и снять флаг — ТЗ №2-fix4 B2 */
   async markReviewed(productId: string): Promise<void> {
     await this.db.execute(sql`
