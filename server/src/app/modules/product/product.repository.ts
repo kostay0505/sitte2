@@ -1000,6 +1000,37 @@ export class ProductRepository {
     return rows[0] as any[];
   }
 
+  // ── ТЗ №4 Ч4.4: Google Sheets ────────────────────────────────────────────
+  /** Данные товара для строки Sheets (формат 1:1: бренд, описание, цена+валюта, url) */
+  async getForSheets(id: string): Promise<{ brand: string; description: string | null; price: string | null; url: string } | null> {
+    const rows = (await this.db.execute(sql`
+      SELECT p.title, p.description, p.price_amount, p.price_currency, p.slug, p.brand_slug, b.name AS brand_name
+      FROM products p LEFT JOIN Brands b ON b.id = p.brand_id WHERE p.id = ${id}
+    `)) as unknown as any[];
+    const r = (rows[0] as any[])[0];
+    if (!r) return null;
+    const price = r.price_amount != null && Number(r.price_amount) > 0
+      ? `${r.price_amount}${r.price_currency ? ' ' + r.price_currency : ''}` : null;
+    const url = r.brand_slug && r.slug
+      ? `https://touringexpertsale.ru/catalog/${r.brand_slug}/${r.slug}` : '';
+    return { brand: r.brand_name || '-', description: r.description ?? null, price, url };
+  }
+
+  async setSentToSheets(ids: string[]): Promise<void> {
+    if (!ids.length) return;
+    await this.db.execute(sql`
+      UPDATE products SET sent_to_sheets = 1 WHERE id IN (${sql.join(ids.map(i => sql`${i}`), sql`, `)})
+    `);
+  }
+
+  /** Статусы выгрузки (для галочек в UI, по образцу photo-statuses) */
+  async sheetsStatuses(): Promise<Array<{ product_id: string; sent: boolean }>> {
+    const rows = (await this.db.execute(sql`
+      SELECT id AS product_id, sent_to_sheets AS sent FROM products WHERE is_catalog = 1
+    `)) as unknown as any[];
+    return (rows[0] as any[]).map(r => ({ product_id: r.product_id, sent: !!r.sent }));
+  }
+
   /** «Проверено»: закрыть открытые review-записи товара и снять флаг — ТЗ №2-fix4 B2 */
   async markReviewed(productId: string): Promise<void> {
     await this.db.execute(sql`

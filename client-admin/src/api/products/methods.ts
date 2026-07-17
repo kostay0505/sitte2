@@ -48,6 +48,20 @@ export async function retryPhotos(productId: string): Promise<{ total: number }>
     return response.data;
 }
 
+// ── ТЗ №4 Ч4.4: Google Sheets ──
+export async function getSheetsStatuses(): Promise<{ product_id: string; sent: boolean }[]> {
+    const { data } = await api.get('/products/admin/sheets-statuses');
+    return data;
+}
+export async function exportProductSheets(id: string): Promise<{ ok: boolean }> {
+    const { data } = await api.post(`/products/admin/${id}/export-to-sheets`);
+    return data;
+}
+export async function bulkExportSheets(ids: string[]): Promise<{ exported: number; errors: string[] }> {
+    const { data } = await api.post('/products/admin/export-to-sheets', { ids });
+    return data;
+}
+
 export async function getProductById(id: string): Promise<Product> {
     try {
         const response = await api.get<Product>(`/products/${id}`);

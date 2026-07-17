@@ -14,6 +14,7 @@ import { ProductRepository } from './product.repository';
 import { FavoriteProductRepository } from '../favorite-product/favorite-product.repository';
 import { ViewedProductRepository } from '../viewed-product/viewed-product.repository';
 import { SearchService } from '../search/search.service';
+import { SheetsService } from '../sheets/sheets.service';
 
 @Injectable()
 export class ProductService {
@@ -27,8 +28,37 @@ export class ProductService {
     private readonly userService: UserService,
     @Inject(forwardRef(() => ModerationService))
     private readonly moderationService: ModerationService,
-    private readonly searchService: SearchService
+    private readonly searchService: SearchService,
+    private readonly sheetsService: SheetsService
   ) {}
+
+  // ── ТЗ №4 Ч4.4: Google Sheets ────────────────────────────────────────────
+  async exportToSheets(id: string): Promise<{ ok: boolean }> {
+    const d = await this.repository.getForSheets(id);
+    if (!d) throw new NotFoundException('Товар не найден');
+    await this.sheetsService.appendRow(d.brand, d.description, d.price, d.url);
+    await this.repository.setSentToSheets([id]);
+    return { ok: true };
+  }
+
+  async bulkExportToSheets(ids: string[]): Promise<{ exported: number; errors: string[] }> {
+    const done: string[] = [];
+    const errors: string[] = [];
+    for (const id of ids) {
+      try {
+        const d = await this.repository.getForSheets(id);
+        if (!d) { errors.push(`${id}: не найден`); continue; }
+        await this.sheetsService.appendRow(d.brand, d.description, d.price, d.url);
+        done.push(id);
+      } catch (e) { errors.push(`${id}: ${(e as Error).message}`); }
+    }
+    if (done.length) await this.repository.setSentToSheets(done);
+    return { exported: done.length, errors };
+  }
+
+  async getSheetsStatuses() {
+    return this.repository.sheetsStatuses();
+  }
 
   async getBasicInfo(userId?: string): Promise<{
     new: Array<ProductShort>;

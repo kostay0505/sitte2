@@ -133,6 +133,27 @@ export class ProductController {
         return this.service.bulkMarkReviewed(body.ids ?? []);
     }
 
+    // ── ТЗ №4 Ч4.4: Google Sheets (static-пути до :id-маршрутов) ──
+    @Get('admin/sheets-statuses')
+    @AdminJwtAuth()
+    async sheetsStatuses() {
+        return this.service.getSheetsStatuses();
+    }
+
+    @Post('admin/export-to-sheets')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async bulkExportSheets(@Body() body: { ids: string[] }) {
+        return this.service.bulkExportToSheets(body.ids ?? []);
+    }
+
+    @Post('admin/:id/export-to-sheets')
+    @AdminJwtAuth()
+    @HttpCode(HttpStatus.OK)
+    async exportSheets(@Param('id') id: string) {
+        return this.service.exportToSheets(id);
+    }
+
     @Patch('admin/:id/listing-status')
     @AdminJwtAuth()
     @HttpCode(HttpStatus.OK)

@@ -13,6 +13,7 @@ import { DatabaseModule } from '../database/database.module';
 import { AppCacheModule } from './modules/cache/cache.module';
 import { ParserSettingsModule } from './modules/parser-settings/parser-settings.module';
 import { NormalizationModule } from './modules/normalization/normalization.module';
+import { SheetsModule } from './modules/sheets/sheets.module';
 import { FavoriteProductModule } from './modules/favorite-product/favorite-product.module';
 import { ProductModule } from './modules/product/product.module';
 import { ResumeModule } from './modules/resume/resume.module';
@@ -70,6 +71,7 @@ import { TendersModule } from './modules/tenders/tenders.module';
     AppCacheModule,
     ParserSettingsModule,
     NormalizationModule,
+    SheetsModule,
     BullModule.forRootAsync({
       useFactory: () => ({
         redis: {

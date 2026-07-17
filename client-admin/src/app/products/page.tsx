@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { getAllProducts, createProduct, updateProduct, hardDeleteProduct, getPhotoStatuses, retryPhotos, PhotoStatus } from '@/api/products/methods';
+import { getAllProducts, createProduct, updateProduct, hardDeleteProduct, getPhotoStatuses, retryPhotos, PhotoStatus, getSheetsStatuses, exportProductSheets } from '@/api/products/methods';
 import { Product, CurrencyList, QuantityType, ProductStatus } from '@/api/products/models';
 import { Button } from '@/components/ui/Button/Button';
 import { COLORS, SPACING } from '@/constants/ui';
@@ -307,6 +307,8 @@ export default function ProductsPage() {
     const [categories, setCategories] = useState<any[]>([]);
     // Шаг 3: статусы автоскачивания фото по товарам-черновикам парсинга
     const [photoStatuses, setPhotoStatuses] = useState<Record<string, PhotoStatus>>({});
+    // ТЗ №4 Ч4.4 — галочки выгрузки в Sheets
+    const [sheetsSent, setSheetsSent] = useState<Record<string, boolean>>({});
 
     // Фильтры
     const [searchQuery, setSearchQuery] = useState('');
@@ -349,16 +351,18 @@ export default function ProductsPage() {
     const loadData = async () => {
         try {
             setLoadingState({ isLoading: true, error: null });
-            const [productsResponse, brandsResponse, categoriesResponse, photoResponse] = await Promise.all([
+            const [productsResponse, brandsResponse, categoriesResponse, photoResponse, sheetsResponse] = await Promise.all([
                 getAllProducts(),
                 getAllBrands(),
                 getAllCategories(),
-                getPhotoStatuses().catch(() => [] as PhotoStatus[])
+                getPhotoStatuses().catch(() => [] as PhotoStatus[]),
+                getSheetsStatuses().catch(() => [] as { product_id: string; sent: boolean }[])
             ]);
             setProducts(productsResponse);
             setBrands(brandsResponse);
             setCategories(categoriesResponse);
             setPhotoStatuses(Object.fromEntries(photoResponse.map(s => [s.product_id, s])));
+            setSheetsSent(Object.fromEntries(sheetsResponse.filter(s => s.sent).map(s => [s.product_id, true])));
         } catch (err: any) {
             const errorMessage = err.message || 'Не удалось загрузить данные';
             setLoadingState({ isLoading: false, error: errorMessage });
@@ -923,6 +927,17 @@ export default function ProductsPage() {
                                 Фото ⟳
                             </Button>
                         )}
+                        {sheetsSent[item.id] ? (
+                            <span title="Уже выгружено в Google Sheets" style={{ background: '#dcfce7', color: '#15803d', borderRadius: 6, padding: '2px 8px', fontSize: 11, fontWeight: 600, whiteSpace: 'nowrap' }}>✓ Sheets</span>
+                        ) : (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => handleExportSheets(item)}
+                            >
+                                → Sheets
+                            </Button>
+                        )}
                         <Button
                             variant="danger"
                             size="sm"
@@ -935,6 +950,18 @@ export default function ProductsPage() {
             }
         }
     ];
+
+    // ТЗ №4 Ч4.4 — поштучная выгрузка в Google Sheets
+    async function handleExportSheets(item: Product) {
+        try {
+            await exportProductSheets(item.id);
+            setSheetsSent(prev => ({ ...prev, [item.id]: true }));
+            showNotification({ message: 'Выгружено в Google Sheets', type: 'success' });
+        } catch (e: unknown) {
+            const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message || (e as Error).message;
+            showNotification({ message: msg, type: 'error' });
+        }
+    }
 
     // Шаг 3: «Скачать фото заново» — перекачка с URL исходной позиции
     async function handleRetryPhotos(item: Product) {
