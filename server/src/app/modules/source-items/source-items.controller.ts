@@ -42,6 +42,7 @@ export class SourceItemsController {
             priceMin: q.priceMin != null && q.priceMin !== '' && !isNaN(Number(q.priceMin)) ? Number(q.priceMin) : undefined,
             priceMax: q.priceMax != null && q.priceMax !== '' && !isNaN(Number(q.priceMax)) ? Number(q.priceMax) : undefined,
             dateFrom: q.dateFrom || undefined,
+            archivedKind: q.archivedKind === 'manual' || q.archivedKind === 'auto' ? q.archivedKind : undefined,
         });
     }
 

@@ -77,6 +77,8 @@ function ParsingPageInner() {
     const [siteStatus, setSiteStatus] = useState(sp.get('site') || '');
     const [noPrice, setNoPrice] = useState(sp.get('noPrice') === '1');
     const [newWithin, setNewWithin] = useState<'' | '24' | '168'>((sp.get('newWithin') as any) || '');
+    // Поправка ТЗ №4 — во вкладке «Архив»: ручной / авто
+    const [archivedKind, setArchivedKind] = useState<'' | 'manual' | 'auto'>((sp.get('ak') as any) || '');
     // #3 per-column фильтры по значению
     const [priceMinInput, setPriceMinInput] = useState(sp.get('priceMin') || '');
     const [priceMaxInput, setPriceMaxInput] = useState(sp.get('priceMax') || '');
@@ -96,6 +98,8 @@ function ParsingPageInner() {
     const [detail, setDetail] = useState<SourceItemFull | null>(null);
     const [selected, setSelected] = useState<Set<string>>(new Set());
     const [lightbox, setLightbox] = useState<{ imgs: string[]; i: number } | null>(null);
+    // Поправка ТЗ №4 — гард удаления живых позиций (блэклист vs удаление)
+    const [trashPrompt, setTrashPrompt] = useState<{ kind: 'one'; row: SourceItemRow } | { kind: 'bulk'; live: SourceItemRow[]; dead: SourceItemRow[] } | null>(null);
 
     useEffect(() => { getSources().then(setSources).catch(() => {}); }, []);
     useEffect(() => { getParsers().then(setParsers).catch(() => {}); }, []);
@@ -123,9 +127,10 @@ function ParsingPageInner() {
         if (priceMin) q.set('priceMin', priceMin);
         if (priceMax) q.set('priceMax', priceMax);
         if (dateFrom) q.set('dateFrom', dateFrom);
+        if (archivedKind) q.set('ak', archivedKind);
         const qs = q.toString();
         router.replace(qs ? `/parsing?${qs}` : '/parsing', { scroll: false });
-    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom, router]);
+    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom, archivedKind, router]);
 
     const load = useCallback(async () => {
         setLoading(true);
@@ -134,15 +139,16 @@ function ParsingPageInner() {
                 tab, source: source || undefined, search: search || undefined, sortBy, sortDir, page, limit: LIMIT,
                 linked: linked || undefined, siteStatus: siteStatus || undefined, noPrice, newWithin: newWithin || undefined,
                 priceMin: priceMin || undefined, priceMax: priceMax || undefined, dateFrom: dateFrom || undefined,
+                archivedKind: (tab === 'archive' && archivedKind) ? archivedKind : undefined,
             });
             setItems(data.items);
             setTotal(data.total);
         } catch (e) { alert((e as Error).message); }
         finally { setLoading(false); }
-    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom]);
+    }, [tab, source, search, sortBy, sortDir, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom, archivedKind]);
 
     useEffect(() => { load(); }, [load]);
-    useEffect(() => { setSelected(new Set()); }, [tab, source, search, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom]);
+    useEffect(() => { setSelected(new Set()); }, [tab, source, search, page, linked, siteStatus, noPrice, newWithin, priceMin, priceMax, dateFrom, archivedKind]);
 
     const pages = Math.max(1, Math.ceil(total / LIMIT));
     const toggleSort = (col: string) => { if (sortBy === col) setSortDir(d => (d === 'asc' ? 'desc' : 'asc')); else { setSortBy(col); setSortDir('desc'); } setPage(1); };
@@ -178,6 +184,31 @@ function ParsingPageInner() {
             alert(`${label}: ${parts.join(', ') || 'готово'}${r.errors?.length ? '\n' + r.errors.slice(0, 5).join('\n') : ''}`);
             setSelected(new Set());
             await load();
+        } catch (e) { alert((e as Error).message); }
+        finally { setBusy(null); }
+    };
+
+    // #2 гард: живая позиция (available/нет статуса) не удаляется тихо — предупреждение + [В архив]
+    const isLive = (r: SourceItemRow) => !r.site_status || r.site_status === 'available';
+    const handleTrashOne = (row: SourceItemRow) => {
+        if (isLive(row)) setTrashPrompt({ kind: 'one', row });
+        else act(row.id, () => siTrash(row.id));
+    };
+    const handleBulkTrash = () => {
+        const sel = items.filter(i => selected.has(i.id));
+        const live = sel.filter(isLive);
+        const dead = sel.filter(i => !isLive(i));
+        if (live.length) setTrashPrompt({ kind: 'bulk', live, dead });
+        else bulk(siBulkTrash, 'В корзину');
+    };
+    const runBulkSplit = async (live: SourceItemRow[], dead: SourceItemRow[]) => {
+        setTrashPrompt(null); setBusy('bulk');
+        try {
+            const parts: string[] = [];
+            if (live.length) { const r = await siBulkArchive(live.map(i => i.id)); parts.push(`в архив: ${r.done ?? live.length}`); }
+            if (dead.length) { const r = await siBulkTrash(dead.map(i => i.id)); parts.push(`в корзину: ${r.done ?? 0}`); if (r.skipped) parts.push(`пропущено: ${r.skipped}`); }
+            alert(parts.join(', ') || 'готово');
+            setSelected(new Set()); await load();
         } catch (e) { alert((e as Error).message); }
         finally { setBusy(null); }
     };
@@ -233,6 +264,12 @@ function ParsingPageInner() {
 
             {/* Фильтры-пилюли */}
             <div style={{ ...S.controls, gap: 6 }}>
+                {tab === 'archive' && (['', 'manual', 'auto'] as const).map(v => (
+                    <button key={v || 'aall'} style={S.pill(archivedKind === v, '#7c3aed')} onClick={() => { setArchivedKind(v); setPage(1); }}
+                        title={v === 'manual' ? 'Заблэклистено вручную (вечно)' : v === 'auto' ? 'Авто-архив по состоянию источника (вернётся, если оживёт)' : ''}>
+                        {v === '' ? 'Все' : v === 'manual' ? 'Вручную' : 'Авто'}
+                    </button>
+                ))}
                 {tab === 'parsing' && (['', 'unlinked', 'linked'] as const).map(v => (
                     <button key={v || 'all'} style={S.pill(linked === v, '#0f766e')} onClick={() => { setLinked(v); setPage(1); }}>
                         {v === '' ? 'Все' : v === 'unlinked' ? 'Не в товарах' : 'В товарах'}
@@ -318,7 +355,12 @@ function ParsingPageInner() {
                                     {row.linked_product_id && <a href='/products' onClick={e => e.stopPropagation()} style={{ ...S.badge('#dbeafe', '#1e40af'), marginLeft: 6, textDecoration: 'none' }}>в товарах ↗</a>}
                                 </td>
                                 <td style={S.td}>{fmtPrice(row)}</td>
-                                <td style={S.td}>{siteBadge(row.site_status)}</td>
+                                <td style={S.td}>
+                                    {siteBadge(row.site_status)}
+                                    {tab === 'archive' && (row.archived_at
+                                        ? <span style={{ ...S.badge('#ede9fe', '#6d28d9'), marginLeft: 6 }} title='Блэклист источника (вечно)'>вручную</span>
+                                        : <span style={{ ...S.badge('#f1f5f9', '#64748b'), marginLeft: 6 }} title='Авто-архив — вернётся, если оживёт'>авто: {row.site_status || '—'}</span>)}
+                                </td>
                                 <td style={S.td}>{fmtDate(row.first_seen)}</td>
                                 {tab === 'trash' && <td style={S.td}>{daysLeft(row.delete_after)} <span style={{ color: '#94a3b8' }}>({row.trash_reason})</span></td>}
                                 <td style={{ ...S.td, whiteSpace: 'nowrap' }} onClick={e => e.stopPropagation()}>
@@ -329,7 +371,7 @@ function ParsingPageInner() {
                                     )}
                                     {tab === 'parsing' && <button style={S.btn('#64748b')} disabled={busy === row.id} onClick={() => act(row.id, () => siArchive(row.id))}>Архив</button>}
                                     {tab === 'archive' && <button style={S.btn('#64748b')} disabled={busy === row.id || !row.archived_at} title={row.archived_at ? 'Вернуть в «Парсинг»' : 'Авто-архив источника'} onClick={() => act(row.id, () => siUnarchive(row.id))}>Вернуть</button>}
-                                    {tab !== 'trash' && <button style={S.btn('#dc2626')} disabled={busy === row.id} title='В корзину (7 дней)' onClick={() => act(row.id, () => siTrash(row.id))}>В корзину</button>}
+                                    {tab !== 'trash' && <button style={S.btn('#dc2626')} disabled={busy === row.id} title='В корзину (7 дней)' onClick={() => handleTrashOne(row)}>В корзину</button>}
                                     {tab === 'trash' && (
                                         <>
                                             <button style={S.btn('#16a34a')} disabled={busy === row.id} onClick={() => act(row.id, () => siRestore(row.id))}>Вернуть</button>
@@ -350,6 +392,7 @@ function ParsingPageInner() {
                                                         <p><b>Оригинальная строка цены:</b> {String((detail.raw as Record<string, unknown>)?.price ?? '—')}{detail.parse_error ? <span style={{ ...S.badge('#fee2e2', '#991b1b'), marginLeft: 6 }}>цена не распознана</span> : null}</p>
                                                         {detail.extra && <p><b>Из источника:</b> {Object.entries(detail.extra).filter(([k, v]) => v != null && v !== '' && !['local_images', 'drive_folder_id'].includes(k)).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v) : v}`).join(' · ') || '—'}</p>}
                                                         {detail.linked_product_id && <p><b>Связанный товар:</b> {detail.linked_custom_id || detail.linked_product_id}</p>}
+                                                        {detail.archived_at && <p><b>В архиве вручную (блэклист) с:</b> {fmtDate(detail.archived_at)}</p>}
                                                         <p style={{ whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto', background: '#fff', padding: 8, borderRadius: 6 }}>{detail.description || 'Без описания'}</p>
                                                     </div>
                                                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', maxWidth: 340 }}>
@@ -385,8 +428,41 @@ function ParsingPageInner() {
                     <span style={{ fontWeight: 700 }}>Выбрано: {selected.size}</span>
                     {tab !== 'trash' && <button disabled={busy === 'bulk'} onClick={() => bulk(siBulkToBase, 'В товары')} style={{ ...S.btn('#16a34a'), marginRight: 0 }}>В товары</button>}
                     {tab === 'parsing' && <button disabled={busy === 'bulk'} onClick={() => bulk(siBulkArchive, 'Архив')} style={{ ...S.btn('#64748b'), marginRight: 0 }}>Архив</button>}
-                    {tab !== 'trash' && <button disabled={busy === 'bulk'} onClick={() => bulk(siBulkTrash, 'В корзину', `Отправить ${selected.size} позиц. в корзину?`)} style={{ ...S.btn('#dc2626'), marginRight: 0 }}>В корзину</button>}
+                    {tab !== 'trash' && <button disabled={busy === 'bulk'} onClick={handleBulkTrash} style={{ ...S.btn('#dc2626'), marginRight: 0 }}>В корзину</button>}
                     <button onClick={() => setSelected(new Set())} style={{ padding: '6px 12px', borderRadius: 6, border: '1px solid rgba(255,255,255,0.2)', background: 'transparent', color: '#94a3b8', fontSize: 12, cursor: 'pointer', marginLeft: 'auto' }}>× Снять</button>
+                </div>
+            )}
+
+            {/* #2 гард удаления живых позиций */}
+            {trashPrompt && (
+                <div onClick={() => setTrashPrompt(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 320, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div onClick={e => e.stopPropagation()} style={{ background: '#fff', borderRadius: 12, padding: 24, maxWidth: 460, width: '90%' }}>
+                        {trashPrompt.kind === 'one' ? (
+                            <>
+                                <p style={{ fontSize: 14, color: '#1e293b', marginBottom: 16, lineHeight: 1.5 }}>
+                                    Позиция <b>жива на источнике</b> — после удаления она вернётся при следующем парсинге (новая строка, бейдж «new»).
+                                    Чтобы скрыть навсегда, используйте <b>Архив</b> (блэклист URL).
+                                </p>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                    <button onClick={() => setTrashPrompt(null)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Отмена</button>
+                                    <button onClick={() => { const r = trashPrompt.row; setTrashPrompt(null); act(r.id, () => siArchive(r.id)); }} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>В архив (рекоменд.)</button>
+                                    <button onClick={() => { const r = trashPrompt.row; setTrashPrompt(null); act(r.id, () => siTrash(r.id)); }} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontSize: 13 }}>Всё равно удалить</button>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <p style={{ fontSize: 14, color: '#1e293b', marginBottom: 16, lineHeight: 1.5 }}>
+                                    В выборке <b>{trashPrompt.live.length}</b> живых позиций (на источнике активны) и <b>{trashPrompt.dead.length}</b> мёртвых.
+                                    Живые после удаления вернутся при следующем парсинге — их правильнее в <b>Архив</b>.
+                                </p>
+                                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                    <button onClick={() => setTrashPrompt(null)} style={{ padding: '8px 14px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13 }}>Отмена</button>
+                                    <button onClick={() => runBulkSplit(trashPrompt.live, trashPrompt.dead)} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Живые → архив, мёртвые → корзину</button>
+                                    <button onClick={() => { const all = [...trashPrompt.live, ...trashPrompt.dead]; runBulkSplit([], all); }} style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontSize: 13 }}>Всё в корзину</button>
+                                </div>
+                            </>
+                        )}
+                    </div>
                 </div>
             )}
 

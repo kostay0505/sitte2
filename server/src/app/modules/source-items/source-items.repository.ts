@@ -50,6 +50,7 @@ export class SourceItemsRepository {
         sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number;
         linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithinHours?: number;
         priceMin?: number; priceMax?: number; dateFrom?: string;
+        archivedKind?: 'manual' | 'auto';
     }): Promise<{ items: SourceItemListRow[]; total: number }> {
         const conds = [this.tabCondition(opts.tab)];
         if (opts.source) conds.push(sql`si.source = ${opts.source}`);
@@ -69,6 +70,9 @@ export class SourceItemsRepository {
         if (opts.noPrice) conds.push(sql`si.price_amount IS NULL`);
         // A4 новые
         if (opts.newWithinHours) conds.push(sql`si.first_seen >= DATE_SUB(NOW(), INTERVAL ${opts.newWithinHours} HOUR)`);
+        // Поправка ТЗ №4 — архив: ручной (блэклист, archived_at) vs авто (по site_status)
+        if (opts.archivedKind === 'manual') conds.push(sql`si.archived_at IS NOT NULL`);
+        else if (opts.archivedKind === 'auto') conds.push(sql`si.archived_at IS NULL`);
 
         const where = sql.join(conds, sql` AND `);
         const orderCol = SORTABLE[opts.sortBy ?? ''] ?? 'si.first_seen';

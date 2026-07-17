@@ -41,6 +41,7 @@ export class SourceItemsService {
         page: number; limit: number;
         linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithinHours?: number;
         priceMin?: number; priceMax?: number; dateFrom?: string;
+        archivedKind?: 'manual' | 'auto';
     }) {
         return this.repo.list(opts);
     }

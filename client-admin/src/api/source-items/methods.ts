@@ -35,7 +35,7 @@ export async function getSourceItems(params: {
     tab: SourceTab; source?: string; search?: string;
     sortBy?: string; sortDir?: 'asc' | 'desc'; page: number; limit: number;
     linked?: 'linked' | 'unlinked'; siteStatus?: string; noPrice?: boolean; newWithin?: '24' | '168';
-    priceMin?: string; priceMax?: string; dateFrom?: string;
+    priceMin?: string; priceMax?: string; dateFrom?: string; archivedKind?: 'manual' | 'auto';
 }): Promise<{ items: SourceItemRow[]; total: number }> {
     const p: Record<string, string> = {
         tab: params.tab, page: String(params.page), limit: String(params.limit),
@@ -50,6 +50,7 @@ export async function getSourceItems(params: {
     if (params.priceMin) p.priceMin = params.priceMin;
     if (params.priceMax) p.priceMax = params.priceMax;
     if (params.dateFrom) p.dateFrom = params.dateFrom;
+    if (params.archivedKind) p.archivedKind = params.archivedKind;
     const { data } = await api.get('/source-items', { params: p });
     return data;
 }
