@@ -21,6 +21,18 @@ interface IndexedProduct {
     description: string;
 }
 
+// ТЗ №4 Ч4.3 — индекс «Объявлений» (каталог главного продавца, все статусы)
+interface IndexedListing {
+    id: string;
+    name: string;
+    customId: string;
+    brand: string;
+    category: string;
+    description: string;
+}
+
+const MAIN_SELLER = process.env.MAIN_SELLER_USER_ID || '6737529504';
+
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const REFRESH_DEBOUNCE_MS = 3000;
 const MAX_RESULTS = 200;
@@ -123,11 +135,25 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         } as SearchOptions,
     };
 
+    // ── индекс «Объявлений» (Ч4.3) ──
+    private listingsIndex: MiniSearch<IndexedListing> | null = null;
+    private listingsReady = false;
+    private readonly listingsOptions: Options<IndexedListing> = {
+        fields: ['name', 'customId', 'brand', 'category', 'description'],
+        storeFields: [],
+        processTerm: normalizeTerm,
+        searchOptions: {
+            prefix: true, fuzzy: 0.2, combineWith: 'AND',
+            boost: { name: 3, customId: 3, brand: 2, category: 1.5, description: 1 },
+            processTerm: normalizeTerm,
+        } as SearchOptions,
+    };
+
     constructor(@Inject('DATABASE') private db: Database) {}
 
     async onModuleInit() {
-        await this.refresh();
-        this.intervalHandle = setInterval(() => this.refresh(), REFRESH_INTERVAL_MS);
+        await Promise.all([this.refresh(), this.refreshListings()]);
+        this.intervalHandle = setInterval(() => { this.refresh(); this.refreshListings(); }, REFRESH_INTERVAL_MS);
     }
 
     onModuleDestroy() {
@@ -135,10 +161,48 @@ export class SearchService implements OnModuleInit, OnModuleDestroy {
         if (this.debounceHandle) clearTimeout(this.debounceHandle);
     }
 
-    /** Отложенная перестройка индекса после CRUD товара (дебаунс) */
+    /** Отложенная перестройка индексов после CRUD товара (дебаунс) */
     refreshSoon(): void {
         if (this.debounceHandle) clearTimeout(this.debounceHandle);
-        this.debounceHandle = setTimeout(() => this.refresh().catch(() => {}), REFRESH_DEBOUNCE_MS);
+        this.debounceHandle = setTimeout(() => {
+            this.refresh().catch(() => {});
+            this.refreshListings().catch(() => {});
+        }, REFRESH_DEBOUNCE_MS);
+    }
+
+    /** Ранжированные id объявлений главного продавца. undefined = индекс не готов (fallback на LIKE). */
+    searchListings(query: string): string[] | undefined {
+        if (!this.listingsReady || !this.listingsIndex) return undefined;
+        const q = query.trim().slice(0, 200);
+        if (!q) return undefined;
+        let hits = this.listingsIndex.search(q);
+        if (!hits.length) hits = this.listingsIndex.search(q, { combineWith: 'OR' });
+        return hits.slice(0, MAX_RESULTS).map(h => String(h.id));
+    }
+
+    private async refreshListings(): Promise<void> {
+        try {
+            const result = await this.db.execute(sql`
+                SELECT p.id, p.title AS name, p.custom_id AS customId, p.description,
+                       b.name AS brand, c.name AS category
+                FROM products p
+                LEFT JOIN Brands b ON b.id = p.brand_id
+                LEFT JOIN Categories c ON c.id = p.category_id
+                WHERE p.user_id = ${MAIN_SELLER} AND p.is_catalog = 1 AND p.is_deleted = 0
+            `);
+            const rows = result[0] as unknown as Array<Record<string, unknown>>;
+            const docs: IndexedListing[] = rows.map(r => ({
+                id: String(r.id), name: String(r.name || ''), customId: String(r.customId || ''),
+                brand: String(r.brand || ''), category: String(r.category || ''),
+                description: String(r.description || '').slice(0, 300),
+            }));
+            const next = new MiniSearch<IndexedListing>(this.listingsOptions);
+            next.addAll(docs);
+            this.listingsIndex = next;
+            this.listingsReady = true;
+        } catch (err) {
+            this.logger.warn(`Listings index rebuild failed: ${(err as Error).message}`);
+        }
     }
 
     /**

@@ -162,7 +162,16 @@ export class ProductService {
     sortBy?: 'updated' | 'price' | 'name'; sortDir?: 'asc' | 'desc';
     problemSource?: boolean; needsReview?: boolean;
   }) {
-    return this.repository.findAdminListingsPaged(params);
+    // ТЗ №4 Ч4.3 — умный поиск (MiniSearch): ранжированные id; индекс не готов → fallback на LIKE в репозитории
+    let searchIds: string[] | undefined;
+    if (params.search?.trim()) {
+      const ids = this.searchService.searchListings(params.search);
+      if (ids) {
+        if (!ids.length) return { items: [], total: 0 };
+        searchIds = ids;
+      }
+    }
+    return this.repository.findAdminListingsPaged({ ...params, searchIds });
   }
 
   async getListingCounters(userId: string) {

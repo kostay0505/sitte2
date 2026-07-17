@@ -916,13 +916,16 @@ export class ProductRepository {
     userId: string; page: number; limit: number;
     search?: string; status?: 'active' | 'inactive' | 'sold';
     sortBy?: 'updated' | 'price' | 'name'; sortDir?: 'asc' | 'desc';
-    problemSource?: boolean; needsReview?: boolean;
+    problemSource?: boolean; needsReview?: boolean; searchIds?: string[];
   }): Promise<{ items: any[]; total: number }> {
     const conds = [sql`p.user_id = ${params.userId}`, sql`p.is_catalog = 1`, sql`p.is_deleted = 0`];
     if (params.status === 'sold') conds.push(sql`p.moderation_status = 'sold'`);
     else if (params.status === 'inactive') conds.push(sql`p.is_active = 0 AND p.moderation_status <> 'sold'`);
     else if (params.status === 'active') conds.push(sql`p.is_active = 1 AND p.moderation_status <> 'sold'`);
-    if (params.search) {
+    // ТЗ №4 Ч4.3 — умный поиск: searchIds из MiniSearch; если индекс не готов — старый LIKE
+    if (params.searchIds && params.searchIds.length) {
+      conds.push(sql`p.id IN (${sql.join(params.searchIds.map(id => sql`${id}`), sql`, `)})`);
+    } else if (params.search) {
       const like = `%${params.search}%`;
       conds.push(sql`(p.title LIKE ${like} OR p.custom_id LIKE ${like})`);
     }
@@ -932,10 +935,15 @@ export class ProductRepository {
     }
     if (params.needsReview) conds.push(sql`p.has_pending_review = 1`);
 
+    // при активном умном поиске без явной сортировки — порядок по релевантности (как вернул индекс)
+    const relevance = params.searchIds && params.searchIds.length && !params.sortBy;
     const sortCol = params.sortBy === 'price' ? sql`p.price_amount`
       : params.sortBy === 'name' ? sql`p.title`
       : sql`p.updated_at`;
     const dir = params.sortDir === 'desc' ? sql`DESC` : sql`ASC`;
+    const orderClause = relevance
+      ? sql`FIELD(p.id, ${sql.join(params.searchIds!.map(id => sql`${id}`), sql`, `)})`
+      : sql`${sortCol} ${dir}`;
     const offset = (params.page - 1) * params.limit;
     const where = sql.join(conds, sql` AND `);
 
@@ -952,7 +960,7 @@ export class ProductRepository {
       LEFT JOIN Brands b ON b.id = p.brand_id
       LEFT JOIN source_items si ON si.id = p.source_item_id
       WHERE ${where}
-      ORDER BY ${sortCol} ${dir}
+      ORDER BY ${orderClause}
       LIMIT ${params.limit} OFFSET ${offset}
     `)) as unknown as any[];
     const cntRes = (await this.db.execute(sql`
